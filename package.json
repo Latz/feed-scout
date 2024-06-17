@@ -7,7 +7,7 @@
     "commander": "^7.2.0",
     "hamsters.js": "^5.3.9",
     "htmlparser2": "^6.1.0",
-    "jsdom": "^16.7.0",
+    "jsdom": "^17.0.0",
     "linkedom": "^0.11.2",
     "node-fetch": "^2.6.2",
     "npm": "^7.24.0",
