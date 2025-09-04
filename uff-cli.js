@@ -115,6 +115,11 @@ function start(data) {
 	unvisitedCount = 0;
 	progressLineActive = false;
 	
+	// Hide cursor for blindsearch
+	if (data.niceName === 'Blind search') {
+		process.stdout.write('\x1B[?25l'); // Hide cursor
+	}
+	
 	process.stdout.write(`Start ${data.niceName} `);
 }
 
@@ -123,6 +128,11 @@ function end(data) {
 	if (progressLineActive) {
 		process.stdout.write('\n');
 		progressLineActive = false;
+	}
+	
+	// Show cursor again after blindsearch
+	if (data.module === 'blindsearch') {
+		process.stdout.write('\x1B[?25h'); // Show cursor
 	}
 	
 	process.stdout.write(' ');
@@ -156,6 +166,11 @@ function end(data) {
 	process.exit(0);
 }
 function error(data) {
+	// Show cursor if hidden due to blindsearch
+	if (data.module === 'blindsearch') {
+		process.stdout.write('\x1B[?25h'); // Show cursor
+	}
+	
 	if (data.error) {
 		console.error(chalk.red(`Error: ${data.error}`));
 	} else if (data.module) {
