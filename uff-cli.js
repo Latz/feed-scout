@@ -152,12 +152,16 @@ function start(data) {
 }
 
 function end(data) {
+  // Add newline after progress display
+  if (progressLineActive) {
+    process.stdout.write("\n");
+    progressLineActive = false;
+  }
+
   // Show cursor again after blindsearch
   if (data.module === "blindsearch") {
     process.stdout.write("\x1B[?25h"); // Show cursor
   }
-
-  process.stdout.write(" ");
 
   // Handle case when no feeds are found
   if (data.feeds.length === 0) {
