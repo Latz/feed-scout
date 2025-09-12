@@ -1,0 +1,82 @@
+{
+	"name": "uff",
+	"version": "1.0.0",
+	"description": "Ultimate Feed Finder - Find RSS, Atom, and JSON feeds on any website with support for preserving query parameters",
+	"main": "dist/uff.cjs",
+	"module": "dist/uff.js",
+	"type": "module",
+	"exports": {
+		".": {
+			"import": "./dist/uff.js",
+			"require": "./dist/uff.cjs"
+		},
+		"./metaLinks": {
+			"import": "./dist/modules/metaLinks.js",
+			"require": "./dist/modules/metaLinks.cjs"
+		},
+		"./anchors": {
+			"import": "./dist/modules/anchors.js",
+			"require": "./dist/modules/anchors.cjs"
+		},
+		"./blindsearch": {
+			"import": "./dist/modules/blindsearch.js",
+			"require": "./dist/modules/blindsearch.cjs"
+		},
+		"./deepSearch": {
+			"import": "./dist/modules/deepSearch.js",
+			"require": "./dist/modules/deepSearch.cjs"
+		},
+		"./eventEmitter": {
+			"import": "./dist/modules/eventEmitter.js",
+			"require": "./dist/modules/eventEmitter.cjs"
+		},
+		"./fetchWithTimeout": {
+			"import": "./dist/modules/fetchWithTimeout.js",
+			"require": "./dist/modules/fetchWithTimeout.cjs"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"test": "npm run test:eventemitter && npm run test:anchors && npm run test:common && npm run test:spinner && npm run test:fetchcontroller && npm run test:uff && npm run test:main",
+		"build": "vite build"
+	},
+	"keywords": [
+		"rss",
+		"atom",
+		"feed",
+		"finder",
+		"rss-finder",
+		"feed-discovery",
+		"web-feed",
+		"syndication",
+		"query-parameters"
+	],
+	"author": "Your Name <your.email@example.com>",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/yourusername/uff.git"
+	},
+	"bugs": {
+		"url": "https://github.com/yourusername/uff/issues"
+	},
+	"homepage": "https://github.com/yourusername/uff#readme",
+	"dependencies": {
+		"async": "^3.2.6",
+		"chalk": "^5.4.1",
+		"isurl-module": "^0.10.0",
+		"linkedom": "^0.18.7",
+		"normalize-url": "^8.0.1",
+		"parse5": "^7.2.1",
+		"tldts": "^6.1.76",
+		"truncate-url": "^2.1.0"
+	},
+	"engines": {
+		"node": ">=14.0.0"
+	},
+	"devDependencies": {
+		"vite": "^6.3.6"
+	}
+}
