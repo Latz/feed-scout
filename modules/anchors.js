@@ -1,3 +1,10 @@
+// Helper function to clean titles by removing excessive whitespace and newlines
+function cleanTitle(title) {
+  if (!title) return title;
+  // Remove leading/trailing whitespace and collapse multiple whitespace characters
+  return title.replace(/\s+/g, ' ').trim();
+}
+
 // Helper functions to properly classify URLs
 function isValidHttpUrl(url) {
 	try {
@@ -74,14 +81,14 @@ async function checkAnchors(instance) {
 				if (feedResult) {
 					feedUrls.push({
 						href: urlToCheck,
-						title: anchor.textContent,
+						title: cleanTitle(anchor.textContent),
 						type: feedResult.type,
 						feedTitle: feedResult.title
 					});
 				} else {
 					noFeeds.push({
 						href: urlToCheck,
-						title: anchor.textContent,
+						title: cleanTitle(anchor.textContent),
 					});
 				}
 			} catch (error) {
