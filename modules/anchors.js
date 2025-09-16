@@ -5,6 +5,26 @@ function cleanTitle(title) {
   return title.replace(/\s+/g, ' ').trim();
 }
 
+// Helper function to detect common feed path patterns
+function isLikelyFeedPath(href) {
+  // Common feed path patterns
+  const commonFeedPaths = [
+    '/rss/',
+    '/rss',
+    '/feed',
+    '/atom',
+    '.rss',
+    '.atom',
+    '.xml',
+    '.json',
+    '/syndication/',
+    '/feeds/'
+  ];
+  
+  // Check if href matches any common feed path pattern
+  return commonFeedPaths.some(pattern => href.includes(pattern));
+}
+
 // Helper functions to properly classify URLs
 function isValidHttpUrl(url) {
 	try {
@@ -75,7 +95,8 @@ async function checkAnchors(instance) {
 		
 		let match = anchor.href.match(regex);
 		let match1 = anchor.textContent.match(regex);
-		if (match || match1) {
+		let isLikelyFeed = isLikelyFeedPath(anchor.href);
+		if (match || match1 || isLikelyFeed) {
 			try {
 				let feedResult = await checkFeed(urlToCheck);
 				if (feedResult) {
