@@ -64,7 +64,7 @@ export default function metaLinks(instance) {
       `link[type="application/${feedType}"]`,
     )) {
       feeds.push({
-        href: new URL(link.href, instance.site).href, // make relative path absolute
+        url: new URL(link.href, instance.site).href, // make relative path absolute
         title: cleanTitle(link.title),
         type: getFeedType(link),
       });
@@ -82,11 +82,11 @@ export default function metaLinks(instance) {
     // If it's likely a feed and we haven't already added it
     if (isLikelyFeed) {
       const fullHref = new URL(link.href, instance.site).href;
-      const alreadyAdded = feeds.some(feed => feed.href === fullHref);
+      const alreadyAdded = feeds.some(feed => feed.url === fullHref);
       
       if (!alreadyAdded) {
         feeds.push({
-          href: fullHref,
+          url: fullHref,
           title: cleanTitle(link.title),
           type: getFeedType(link),
         });

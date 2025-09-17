@@ -1,14 +1,14 @@
 {
-	"name": "uff",
+	"name": "feed-scout",
 	"version": "1.0.0",
-	"description": "Ultimate Feed Finder - Find RSS, Atom, and JSON feeds on any website with support for preserving query parameters",
-	"main": "dist/uff.cjs",
-	"module": "dist/uff.js",
+	"description": "Feed Scout - Find RSS, Atom, and JSON feeds on any website with support for preserving query parameters",
+	"main": "dist/feed-scout.cjs",
+	"module": "dist/feed-scout.js",
 	"type": "module",
 	"exports": {
 		".": {
-			"import": "./dist/uff.js",
-			"require": "./dist/uff.cjs"
+			"import": "./dist/feed-scout.js",
+			"require": "./dist/feed-scout.cjs"
 		},
 		"./metaLinks": {
 			"import": "./dist/modules/metaLinks.js",
@@ -39,7 +39,7 @@
 		"dist"
 	],
 	"scripts": {
-		"test": "npm run test:eventemitter && npm run test:anchors && npm run test:common && npm run test:spinner && npm run test:fetchcontroller && npm run test:uff && npm run test:main",
+		"test": "npm run test:eventemitter && npm run test:anchors && npm run test:common && npm run test:spinner && npm run test:fetchcontroller && npm run test:feed-scout && npm run test:main",
 		"build": "vite build"
 	},
 	"keywords": [
@@ -57,12 +57,12 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/yourusername/uff.git"
+		"url": "https://github.com/yourusername/feed-scout.git"
 	},
 	"bugs": {
-		"url": "https://github.com/yourusername/uff/issues"
+		"url": "https://github.com/yourusername/feed-scout/issues"
 	},
-	"homepage": "https://github.com/yourusername/uff#readme",
+	"homepage": "https://github.com/yourusername/feed-scout#readme",
 	"dependencies": {
 		"async": "^3.2.6",
 		"chalk": "^5.4.1",

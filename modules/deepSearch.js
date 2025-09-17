@@ -86,8 +86,7 @@ class Crawler extends EventEmitter {
 		this.queue.push({ url: this.startUrl, depth: 0 });
 		this.emit('start', { module: 'deepSearch', niceName: 'Deep search' });
 		this.queue.drain(() => {
-			const feeds = this.feeds;
-			this.emit('end', { module: 'deepSearch', feeds });
+			this.emit('end', { module: 'deepSearch', feeds: this.feeds });
 		});
 		console.log('this.feeds', this.feeds);
 		return this.feeds;
@@ -130,37 +129,47 @@ class Crawler extends EventEmitter {
 
 		for (let link of links) {
 			let absoluteUrl = new URL(link.href, this.startUrl).href;
+			// Skip if we've already visited this URL
+			if (this.visitedUrls.has(absoluteUrl)) continue;
+			
 			try {
 				// Check if the link itself is a feed
 				const feedResult = await checkFeed(absoluteUrl);
 				if (feedResult) {
-					this.feeds.push({ 
-						url: absoluteUrl, 
-						type: feedResult.type,
-						title: feedResult.title
-					});
-					console.log('temp feeds', this.feeds);
+					// Check if we already found this feed to avoid duplicates
+					const alreadyFound = this.feeds.some(feed => feed.url === absoluteUrl);
+					if (!alreadyFound) {
+						this.feeds.push({ 
+							url: absoluteUrl, 
+							type: feedResult.type,
+							title: feedResult.title
+						});
+						console.log('Found new feed:', { 
+							url: absoluteUrl, 
+							type: feedResult.type,
+							title: feedResult.title
+						});
+					}
 				}
 			} catch (error) {
 				// Emit error event with the specified pattern when an error occurs
 				this.emit('error', { module: 'deepSearch', error: error.message });
 			}
 			// Then add the link to the queue for further crawling
-			if (!this.visitedUrls.has(absoluteUrl))
-				this.queue.push({ url: absoluteUrl, depth: depth + 1 });
+			this.queue.push({ url: absoluteUrl, depth: depth + 1 });
 		}
 	}
 } // class Crawler
 export default async function deepSearch(url, options = {}) {
 	const crawler = new Crawler(url, options.depth || 3);
 	crawler.timeout = (options.timeout || 5) * 1000; // Convert seconds to milliseconds
-	const feeds = crawler.start();
+	crawler.start();
 	// Create a promise that resolves when the queue is drained
 	await new Promise((resolve) => {
 		crawler.queue.drain(() => {
 			resolve();
 		});
 	});
-	console.log('🚀 ~ deepSearch ~ feeds:', feeds);
-	return feeds;
+	console.log('🚀 ~ deepSearch ~ feeds:', crawler.feeds);
+	return crawler.feeds;
 }

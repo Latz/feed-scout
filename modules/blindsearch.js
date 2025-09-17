@@ -5,9 +5,11 @@
  *
  * @param {object} instance - The instance object containing site information and an event emitter.
  * @param {string} instance.site - The base URL to start the blind search from.
+ * @param {object} instance.options - Options for the search.
+ * @param {boolean} instance.options.keepQueryParams - Whether to keep query parameters from the original URL.
  * @param {function(string, object): void} instance.emit - A function to emit events (e.g., 'start', 'log', 'error', 'end').
- * @returns {Promise<Array<{url: string, feedType: string}>>} A promise that resolves to an array of found feed objects.
- *   Each object contains the `url` of the feed and its `feedType` ('rss' or 'atom').
+ * @returns {Promise&lt;Array&lt;{url: string, feedType: string, title: string|null}&gt;&gt;} A promise that resolves to an array of found feed objects.
+ *   Each object contains the `url` of the feed, its `feedType` ('rss' or 'atom'), and its `title` if available.
  */
 
 import checkFeed from "./checkFeed.js";
@@ -87,12 +89,21 @@ export default async function blindSearch(instance) {
   // Use a Set to track found feed URLs and prevent duplicates
   const foundUrls = new Set();
 
+  // Extract query parameters if the keepQueryParams option is enabled
+  let queryParams = "";
+  if (instance.options && instance.options.keepQueryParams) {
+    const urlObj = new URL(instance.site);
+    queryParams = urlObj.search; // This includes the '?' character if there are query parameters
+  }
+
   while (path.length >= origin.length) {
     // Ensure we don't have a double slash by removing a trailing slash from the path.
     const basePath = path.endsWith("/") ? path.slice(0, -1) : path;
-    endpoints.forEach((endpoint) =>
-      endpointUrls.push(`${basePath}/${endpoint}`),
-    );
+    endpoints.forEach((endpoint) => {
+      // Add query parameters to the endpoint URL if they exist and the option is enabled
+      const urlWithParams = queryParams ? `${basePath}/${endpoint}${queryParams}` : `${basePath}/${endpoint}`;
+      endpointUrls.push(urlWithParams);
+    });
     path = path.slice(0, path.lastIndexOf("/"));
   }
 
@@ -115,22 +126,26 @@ export default async function blindSearch(instance) {
     instance.emit("log", { module: "blindsearch", url: false });
 
     try {
-      let feedType = await checkFeed(url);
+      let feedResult = await checkFeed(url);
 
       // Emit log for visited site
       instance.emit("log", { module: "blindsearch", url: true });
 
       // Only add feed if it hasn't been found before
-      if (feedType && !foundUrls.has(url)) {
+      if (feedResult && !foundUrls.has(url)) {
         foundUrls.add(url); // Track this URL to prevent duplicates
 
-        if (feedType === "rss") {
+        if (feedResult.type === "rss") {
           rssFound = true;
-          feeds.push({ url, feedType });
+          feeds.push({ url, feedType: feedResult.type, title: feedResult.title });
         }
-        if (feedType === "atom") {
+        if (feedResult.type === "atom") {
           atomFound = true;
-          feeds.push({ url, feedType });
+          feeds.push({ url, feedType: feedResult.type, title: feedResult.title });
+        }
+        // Handle JSON feeds as well
+        if (feedResult.type === "json") {
+          feeds.push({ url, feedType: feedResult.type, title: feedResult.title });
         }
       }
     } catch (error) {
