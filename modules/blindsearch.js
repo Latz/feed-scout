@@ -57,6 +57,7 @@ export default async function blindSearch(instance) {
     "spip.php?page=backend",
     "syndication.php",
     "xml",
+    "rssfeed.xml",
     "/index.php?format=feed", // Joomla
     "/?format=feed", // Joomla
     "/blog?format=rss", // Squarespace
@@ -101,7 +102,9 @@ export default async function blindSearch(instance) {
     const basePath = path.endsWith("/") ? path.slice(0, -1) : path;
     endpoints.forEach((endpoint) => {
       // Add query parameters to the endpoint URL if they exist and the option is enabled
-      const urlWithParams = queryParams ? `${basePath}/${endpoint}${queryParams}` : `${basePath}/${endpoint}`;
+      const urlWithParams = queryParams
+        ? `${basePath}/${endpoint}${queryParams}`
+        : `${basePath}/${endpoint}`;
       endpointUrls.push(urlWithParams);
     });
     path = path.slice(0, path.lastIndexOf("/"));
@@ -137,15 +140,27 @@ export default async function blindSearch(instance) {
 
         if (feedResult.type === "rss") {
           rssFound = true;
-          feeds.push({ url, feedType: feedResult.type, title: feedResult.title });
+          feeds.push({
+            url,
+            feedType: feedResult.type,
+            title: feedResult.title,
+          });
         }
         if (feedResult.type === "atom") {
           atomFound = true;
-          feeds.push({ url, feedType: feedResult.type, title: feedResult.title });
+          feeds.push({
+            url,
+            feedType: feedResult.type,
+            title: feedResult.title,
+          });
         }
         // Handle JSON feeds as well
         if (feedResult.type === "json") {
-          feeds.push({ url, feedType: feedResult.type, title: feedResult.title });
+          feeds.push({
+            url,
+            feedType: feedResult.type,
+            title: feedResult.title,
+          });
         }
       }
     } catch (error) {
