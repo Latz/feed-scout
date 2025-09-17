@@ -48,6 +48,18 @@ function isRelativePath(url) {
 	}
 }
 
+// Helper function to check if a URL is from the same domain as the base URL
+function isSameDomain(url, baseUrl) {
+	try {
+		const urlObj = new URL(url);
+		const baseObj = new URL(baseUrl);
+		return urlObj.hostname === baseObj.hostname;
+	} catch (e) {
+		// If it fails to parse, assume it's not from the same domain
+		return false;
+	}
+}
+
 import checkFeed from './checkFeed.js';
 import fetchWithTimeout from './fetchWithTimeout.js';
 import { parseHTML } from 'linkedom';
@@ -90,6 +102,11 @@ async function checkAnchors(instance) {
 			}
 		} else {
 			// Skip non-HTTP schemes (mailto:, javascript:, ftp:, etc.)
+			continue;
+		}
+		
+		// Skip URLs that are not from the same domain
+		if (isAbsoluteHttp && !isSameDomain(urlToCheck, instance.site)) {
 			continue;
 		}
 		
