@@ -4,8 +4,22 @@ import { createRequire } from 'module';
 import FeedScout from './feed-scout.js';
 import banner from './modules/banner.js';
 
-// Display ASCII banner
-process.stdout.write(chalk.blue(banner) + '\n');
+// Display ASCII banner with rainbow colors
+function displayRainbowBanner() {
+  const lines = banner.split('\n');
+  const colors = ['red', 'yellow', 'green', 'blue', 'magenta', 'cyan'];
+  
+  lines.forEach((line, index) => {
+    if (line.trim()) { // Skip empty lines
+      const color = colors[index % colors.length];
+      process.stdout.write(chalk[color](line) + '\n');
+    } else {
+      process.stdout.write('\n'); // Preserve empty lines
+    }
+  });
+}
+
+displayRainbowBanner();
 // Store the options globally so we can access them in the end function
 let currentOptions = {};
 // Flag to track if we've already shown the deepsearch suggestion
