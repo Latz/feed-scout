@@ -1,4 +1,4 @@
-// Create a rainbow banner where each character is a different color
+// Create a rainbow banner with tagline
 const bannerText = `
 ___________               .___   _________                    __   
 \\_   _____/___   ____   __| _/  /   _____/ ____  ____  __ ___/  |_ 
@@ -6,6 +6,8 @@ ___________               .___   _________                    __
  |     \\\\  ___/\\  ___// /_/ |   /        \\  \\__(  <_> )  |  /|  |  
  \\___  / \\___  >\\___  >____ |  /_______  /\\___  >____/|____/ |__|  
      \\/      \\/     \\/     \\/          \\/     \\/                   
+                                                                  
+                 On the trail of every feed                     
 `;
 
 export default bannerText;
