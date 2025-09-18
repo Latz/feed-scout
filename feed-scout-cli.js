@@ -94,66 +94,82 @@ program.parse();
 function log(data) {
 	// display url if deep searching
 	if (data.module == 'deepSearch') {
-		// Handle max links message
-		if (data.message) {
-			process.stdout.write(chalk.yellow(`\n${data.message}\n`));
-			return;
-		}
-
-		if (data.error) {
-			process.stdout.write(chalk.red(`Error: ${data.url} ${data.error}\n`));
-			return;
-		}
-
-		// Display progress for deep search
-		process.stdout.write(`[${data.depth}] ${data.url}`);
-
-		// Show feed indicator if it's a feed
-		if (data.feedCheck?.isFeed) {
-			process.stdout.write(chalk.green(` [feed]\n`));
-		} else {
-			process.stdout.write(` ❌\n`);
-		}
+		handleDeepSearchLog(data);
+	} else if (data.module === 'blindsearch') {
+		handleBlindSearchLog(data);
 	} else {
-		// For other modules, show progress as visited/total count
-		if (data.module === 'blindsearch') {
-			// Handle totalCount parameter
-			if (data.totalCount) {
-				unvisitedCount = data.totalCount;
-				blindsearchStartTime = Date.now(); // Record start time
-				return;
-			}
-
-			// Update counters
-			if (data.url) {
-				visitedCount++;
-			}
-
-			// Only update display if we have a module from blindsearch
-			// Move to beginning of line and clear it
-			if (progressLineActive) {
-				process.stdout.write('\r' + ' '.repeat(80) + '\r');
-			} else {
-				progressLineActive = true;
-			}
-
-			// Calculate ETA instead of percentage
-			const elapsedTime = Date.now() - blindsearchStartTime;
-			const avgTimePerUrl = visitedCount > 0 ? elapsedTime / visitedCount : 0;
-			const remainingUrls = unvisitedCount - visitedCount;
-			const etaMs = avgTimePerUrl * remainingUrls;
-
-			// Format ETA (convert milliseconds to minutes and seconds)
-			const etaSeconds = Math.round(etaMs / 1000);
-			const etaMinutes = Math.floor(etaSeconds / 60);
-			const etaRemainingSeconds = etaSeconds % 60;
-			const etaFormatted = `${etaMinutes}m ${etaRemainingSeconds}s remaining`;
-
-			// Create new display showing "Started Blindsearch (visited urls/total urls) ETA"
-			const displayText = `Started Blindsearch (${visitedCount}/${unvisitedCount}) ${etaFormatted}`;
-			process.stdout.write(displayText);
-		}
+		// For other modules, show progress dots
+		process.stdout.write('.');
 	}
+}
+
+/**
+ * Handle logging for deep search module
+ * @param {object} data - The data object containing information about the current event or progress.
+ */
+function handleDeepSearchLog(data) {
+	// Handle max links message
+	if (data.message) {
+		process.stdout.write(chalk.yellow(`\n${data.message}\n`));
+		return;
+	}
+
+	if (data.error) {
+		process.stdout.write(chalk.red(`Error: ${data.url} ${data.error}\n`));
+		return;
+	}
+
+	// Display progress for deep search
+	process.stdout.write(`[${data.depth}] ${data.url}`);
+
+	// Show feed indicator if it's a feed
+	if (data.feedCheck?.isFeed) {
+		process.stdout.write(chalk.green(` [feed]\n`));
+	} else {
+		process.stdout.write(` ❌\n`);
+	}
+}
+
+/**
+ * Handle logging for blind search module
+ * @param {object} data - The data object containing information about the current event or progress.
+ */
+function handleBlindSearchLog(data) {
+	// Handle totalCount parameter
+	if (data.totalCount) {
+		unvisitedCount = data.totalCount;
+		blindsearchStartTime = Date.now(); // Record start time
+		return;
+	}
+
+	// Update counters
+	if (data.url) {
+		visitedCount++;
+	}
+
+	// Only update display if we have a module from blindsearch
+	// Move to beginning of line and clear it
+	if (progressLineActive) {
+		process.stdout.write('\r' + ' '.repeat(80) + '\r');
+	} else {
+		progressLineActive = true;
+	}
+
+	// Calculate ETA instead of percentage
+	const elapsedTime = Date.now() - blindsearchStartTime;
+	const avgTimePerUrl = visitedCount > 0 ? elapsedTime / visitedCount : 0;
+	const remainingUrls = unvisitedCount - visitedCount;
+	const etaMs = avgTimePerUrl * remainingUrls;
+
+	// Format ETA (convert milliseconds to minutes and seconds)
+	const etaSeconds = Math.round(etaMs / 1000);
+	const etaMinutes = Math.floor(etaSeconds / 60);
+	const etaRemainingSeconds = etaSeconds % 60;
+	const etaFormatted = `${etaMinutes}m ${etaRemainingSeconds}s remaining`;
+
+	// Create new display showing "Started Blindsearch (visited urls/total urls) ETA"
+	const displayText = `Started Blindsearch (${visitedCount}/${unvisitedCount}) ${etaFormatted}`;
+	process.stdout.write(displayText);
 }
 
 function start(data) {
