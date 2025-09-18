@@ -23,7 +23,7 @@ export default async function checkFeed(url, content = "") {
 
   // Rss feeds contain <item> elements, Atom feeds contain <entry> elements.
   const result =
-    checkRss(content) || checkAtom(content) || checkJson(content) || none();
+    checkRss(content) || checkAtom(content) || checkJson(content) || null;
   return result;
 }
 
@@ -46,7 +46,7 @@ function checkRss(content) {
     const title = match ? cleanTitle(removeCDATA(match[1])) : null;
     return { type: "rss", title };
   }
-  return false;
+  return null;
 }
 
 function checkAtom(content) {
@@ -58,7 +58,7 @@ function checkAtom(content) {
     const title = match ? cleanTitle(removeCDATA(match[1])) : null;
     return { type: "atom", title };
   }
-  return false;
+  return null;
 }
 
 function checkJson(content) {
@@ -70,13 +70,9 @@ function checkJson(content) {
       const title = json.title || json.name || null;
       return { type: "json", title: cleanTitle(title) };
     }
-    return false;
+    return null;
   } catch (e) {
-    return false;
+    return null;
   }
-}
-
-function none() {
-  return false;
 }
 
