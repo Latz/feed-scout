@@ -92,7 +92,7 @@ export default async function blindSearch(instance) {
 
   // Extract query parameters if the keepQueryParams option is enabled
   let queryParams = "";
-  if (instance.options && instance.options.keepQueryParams) {
+  if (instance.options?.keepQueryParams) {
     const urlObj = new URL(instance.site);
     queryParams = urlObj.search; // This includes the '?' character if there are query parameters
   }
