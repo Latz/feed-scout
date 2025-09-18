@@ -74,6 +74,7 @@ class Crawler extends EventEmitter {
 		this.queue = queue(this.crawlPage.bind(this), this.concurrency);
 		this.visitedUrls = new Set();
 		this.timeout = 5000; // Default timeout value
+		this.maxLinksReachedMessageEmitted = false; // Flag to track if message was emitted
 
 		this.feeds = [];
 
@@ -122,7 +123,14 @@ class Crawler extends EventEmitter {
 		
 		// Check if we've reached the maximum number of links to process
 		if (this.visitedUrls.size >= this.maxLinks) {
-			// If we've reached the limit, don't process this page
+			// If we've reached the limit, emit a message (only once) and don't process this page
+			if (!this.maxLinksReachedMessageEmitted) {
+				this.emit('log', { 
+					module: 'deepSearch', 
+					message: `Max links limit of ${this.maxLinks} reached. Stopping deep search.` 
+				});
+				this.maxLinksReachedMessageEmitted = true;
+			}
 			return;
 		}
 
@@ -141,7 +149,14 @@ class Crawler extends EventEmitter {
 			
 			// Check if we've reached the maximum number of links to process
 			if (this.visitedUrls.size >= this.maxLinks) {
-				// If we've reached the limit, stop adding new links to the queue
+				// If we've reached the limit, emit a message (only once) and stop adding new links to the queue
+				if (!this.maxLinksReachedMessageEmitted) {
+					this.emit('log', { 
+						module: 'deepSearch', 
+						message: `Max links limit of ${this.maxLinks} reached. Stopping deep search.` 
+					});
+					this.maxLinksReachedMessageEmitted = true;
+				}
 				break;
 			}
 			
@@ -173,9 +188,18 @@ class Crawler extends EventEmitter {
 		}
 	}
 } // class Crawler
-export default async function deepSearch(url, options = {}) {
+export default async function deepSearch(url, options = {}, instance = null) {
 	const crawler = new Crawler(url, options.depth || 3, 5, options.maxLinks || 1000);
 	crawler.timeout = (options.timeout || 5) * 1000; // Convert seconds to milliseconds
+	
+	// If we have an instance, forward crawler events to the instance
+	if (instance) {
+		crawler.on('start', (data) => instance.emit('start', data));
+		crawler.on('log', (data) => instance.emit('log', data));
+		crawler.on('error', (data) => instance.emit('error', data));
+		crawler.on('end', (data) => instance.emit('end', data));
+	}
+	
 	crawler.start();
 	// Create a promise that resolves when the queue is drained
 	await new Promise((resolve) => {
