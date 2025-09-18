@@ -137,7 +137,33 @@ class Crawler extends EventEmitter {
 		if (!this.isValidUrl(url)) return;
 		this.visitedUrls.add(url);
 		console.log(`[${depth}] ${url} ${this.visitedUrls.size}`);
+		
+		// Fetch the URL and handle errors properly
 		const response = await fetchWithTimeout(url, this.timeout); // Uses configurable timeout
+		
+		// Check if response is null (fetch failed) or not ok
+		if (!response) {
+			// Emit log with error information for failed fetch
+			this.emit('log', { 
+				module: 'deepSearch', 
+				url: url,
+				depth: depth,
+				error: 'Failed to fetch URL - timeout or network error'
+			});
+			return;
+		}
+		
+		if (!response.ok) {
+			// Emit log with error information for failed fetch
+			this.emit('log', { 
+				module: 'deepSearch', 
+				url: url,
+				depth: depth,
+				error: `HTTP ${response.status} ${response.statusText}`
+			});
+			return;
+		}
+		
 		const html = await response.text();
 		const { document } = parseHTML(html);
 		let links = document.querySelectorAll('a');
@@ -177,11 +203,33 @@ class Crawler extends EventEmitter {
 							type: feedResult.type,
 							title: feedResult.title
 						});
+						// Emit log for found feed
+						this.emit('log', { 
+							module: 'deepSearch', 
+							url: absoluteUrl,
+							depth: depth + 1,
+							feedCheck: { isFeed: true, type: feedResult.type }
+						});
 					}
+				} else {
+					// Emit log for visited URL that is not a feed
+					this.emit('log', { 
+						module: 'deepSearch', 
+						url: absoluteUrl,
+						depth: depth + 1,
+						feedCheck: { isFeed: false }
+					});
 				}
 			} catch (error) {
 				// Emit error event with the specified pattern when an error occurs
-				this.emit('error', { module: 'deepSearch', error: error.message });
+				this.emit('error', { module: 'deepSearch', error: `Error checking feed ${absoluteUrl}: ${error.message}` });
+				// Also emit log with error information
+				this.emit('log', { 
+					module: 'deepSearch', 
+					url: absoluteUrl,
+					depth: depth + 1,
+					error: `Error checking feed: ${error.message}`
+				});
 			}
 			// Then add the link to the queue for further crawling
 			this.queue.push({ url: absoluteUrl, depth: depth + 1 });

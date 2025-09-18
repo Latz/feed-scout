@@ -114,8 +114,10 @@ function handleDeepSearchLog(data) {
 		return;
 	}
 
+	// Handle HTTP errors and fetch failures
 	if (data.error) {
-		process.stdout.write(chalk.red(`Error: ${data.url} ${data.error}\n`));
+		process.stdout.write(`[${data.depth}] ${data.url} `);
+		process.stdout.write(chalk.red(`❌ ${data.error}\n`));
 		return;
 	}
 
