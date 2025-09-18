@@ -1,6 +1,6 @@
 // Function to remove CDATA tags from text
 function removeCDATA(text) {
-  const cdataRegex = new RegExp("<!\\[CDATA\\[(.*?)\\]\\]>", "g");
+    const cdataRegex = /<!\[CDATA\[(.*?)\]\]>/g;
   return text.replace(cdataRegex, "$1");
 }
 
