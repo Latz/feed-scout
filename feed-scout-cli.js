@@ -4,20 +4,30 @@ import { createRequire } from 'module';
 import FeedScout from './feed-scout.js';
 import banner from './modules/banner.js';
 
-// Display ASCII banner with character-level rainbow colors
+// Display ASCII banner with character-level rainbow colors and light blue tagline
 function displayCharacterRainbowBanner() {
   const lines = banner.split('\n');
   const colors = ['red', 'yellow', 'green', 'blue', 'magenta', 'cyan', 'white', 'gray'];
   let colorIndex = 0;
   
   for (const line of lines) {
-    let coloredLine = '';
-    for (const char of line) {
-      const color = colors[colorIndex % colors.length];
-      coloredLine += chalk[color](char);
-      colorIndex++;
+    // Check if this is the tagline (contains "On the trail of every feed")
+    if (line.includes('On the trail of every feed')) {
+      // Display tagline in light blue
+      process.stdout.write(chalk.blue(line) + '\n');
+    } else if (line.trim()) {
+      // Display banner lines with character-level rainbow colors
+      let coloredLine = '';
+      for (const char of line) {
+        const color = colors[colorIndex % colors.length];
+        coloredLine += chalk[color](char);
+        colorIndex++;
+      }
+      process.stdout.write(coloredLine + '\n');
+    } else {
+      // Preserve empty lines
+      process.stdout.write('\n');
     }
-    process.stdout.write(coloredLine + '\n');
   }
 }
 
