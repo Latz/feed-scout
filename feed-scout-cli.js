@@ -4,8 +4,24 @@ import { createRequire } from 'module';
 import FeedScout from './feed-scout.js';
 import banner from './modules/banner.js';
 
-// Display ASCII banner
-process.stdout.write(chalk.blue(banner) + '\n');
+// Display ASCII banner with character-level rainbow colors
+function displayCharacterRainbowBanner() {
+  const lines = banner.split('\n');
+  const colors = ['red', 'yellow', 'green', 'blue', 'magenta', 'cyan', 'white', 'gray'];
+  let colorIndex = 0;
+  
+  for (const line of lines) {
+    let coloredLine = '';
+    for (const char of line) {
+      const color = colors[colorIndex % colors.length];
+      coloredLine += chalk[color](char);
+      colorIndex++;
+    }
+    process.stdout.write(coloredLine + '\n');
+  }
+}
+
+displayCharacterRainbowBanner();
 // Store the options globally so we can access them in the end function
 let currentOptions = {};
 // Flag to track if we've already shown the deepsearch suggestion
