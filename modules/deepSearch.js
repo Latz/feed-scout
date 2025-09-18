@@ -63,12 +63,13 @@ function excludedFile(url) {
 // -------------------------------------------------------------------------------
 
 class Crawler extends EventEmitter {
-	constructor(startUrl, maxDepth = 3, concurrency = 5) {
+	constructor(startUrl, maxDepth = 3, concurrency = 5, maxLinks = 1000) {
 		super();
 		const absoluteStartUrl = new URL(startUrl);
 		this.startUrl = absoluteStartUrl.href;
 		this.maxDepth = maxDepth;
 		this.concurrency = concurrency;
+		this.maxLinks = maxLinks; // Maximum number of links to process
 		this.mainDomain = tldts.getDomain(this.startUrl);
 		this.queue = queue(this.crawlPage.bind(this), this.concurrency);
 		this.visitedUrls = new Set();
@@ -86,7 +87,7 @@ class Crawler extends EventEmitter {
 		this.queue.push({ url: this.startUrl, depth: 0 });
 		this.emit('start', { module: 'deepSearch', niceName: 'Deep search' });
 		this.queue.drain(() => {
-			this.emit('end', { module: 'deepSearch', feeds: this.feeds });
+			this.emit('end', { module: 'deepSearch', feeds: this.feeds, visitedUrls: this.visitedUrls.size });
 		});
 		console.log('this.feeds', this.feeds);
 		return this.feeds;
@@ -118,6 +119,12 @@ class Crawler extends EventEmitter {
 
 		if (depth > this.maxDepth) return;
 		if (this.visitedUrls.has(url)) return;
+		
+		// Check if we've reached the maximum number of links to process
+		if (this.visitedUrls.size >= this.maxLinks) {
+			// If we've reached the limit, don't process this page
+			return;
+		}
 
 		if (!this.isValidUrl(url)) return;
 		this.visitedUrls.add(url);
@@ -131,6 +138,12 @@ class Crawler extends EventEmitter {
 			let absoluteUrl = new URL(link.href, this.startUrl).href;
 			// Skip if we've already visited this URL
 			if (this.visitedUrls.has(absoluteUrl)) continue;
+			
+			// Check if we've reached the maximum number of links to process
+			if (this.visitedUrls.size >= this.maxLinks) {
+				// If we've reached the limit, stop adding new links to the queue
+				break;
+			}
 			
 			try {
 				// Check if the link itself is a feed
@@ -161,7 +174,7 @@ class Crawler extends EventEmitter {
 	}
 } // class Crawler
 export default async function deepSearch(url, options = {}) {
-	const crawler = new Crawler(url, options.depth || 3);
+	const crawler = new Crawler(url, options.depth || 3, 5, options.maxLinks || 1000);
 	crawler.timeout = (options.timeout || 5) * 1000; // Convert seconds to milliseconds
 	crawler.start();
 	// Create a promise that resolves when the queue is drained
