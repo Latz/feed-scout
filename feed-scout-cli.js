@@ -4,34 +4,44 @@ import { createRequire } from 'module';
 import FeedScout from './feed-scout.js';
 import banner from './modules/banner.js';
 
-// Display ASCII banner with character-level rainbow colors and light blue tagline
-function displayCharacterRainbowBanner() {
-  const lines = banner.split('\n');
-  const colors = ['red', 'yellow', 'green', 'blue', 'magenta', 'cyan', 'white', 'gray'];
-  let colorIndex = 0;
+
+function displayGradientBanner() {
+  const text = banner;
+  const lines = text.split('\n');
+  let coloredText = '';
   
-  for (const line of lines) {
-    // Check if this is the tagline (contains "On the trail of every feed")
-    if (line.includes('On the trail of every feed')) {
-      // Display tagline in light blue
-      process.stdout.write(chalk.blue(line) + '\n');
-    } else if (line.trim()) {
-      // Display banner lines with character-level rainbow colors
-      let coloredLine = '';
-      for (const char of line) {
-        const color = colors[colorIndex % colors.length];
-        coloredLine += chalk[color](char);
-        colorIndex++;
-      }
-      process.stdout.write(coloredLine + '\n');
-    } else {
-      // Preserve empty lines
-      process.stdout.write('\n');
+  // Simple blue to red gradient
+  const startColor = { r: 0, g: 0, b: 255 }; // Blue
+  const endColor = { r: 255, g: 0, b: 0 };   // Red
+  
+  // Count non-empty lines for gradient calculation
+  const nonEmptyLines = lines.filter(line => line.trim() !== '').length;
+  let nonEmptyIndex = 0;
+  
+  lines.forEach((line) => {
+    // Preserve empty lines
+    if (line.trim() === '') {
+      coloredText += line + '\n';
+      return;
     }
-  }
+    
+    // Calculate color ratio for this line
+    const ratio = nonEmptyLines > 1 ? nonEmptyIndex / (nonEmptyLines - 1) : 0;
+    
+    // Calculate RGB values
+    const r = Math.round(startColor.r + ratio * (endColor.r - startColor.r));
+    const g = Math.round(startColor.g + ratio * (endColor.g - startColor.g));
+    const b = Math.round(startColor.b + ratio * (endColor.b - startColor.b));
+    
+    // Apply color to the entire line
+    coloredText += chalk.rgb(r, g, b)(line) + '\n';
+    nonEmptyIndex++;
+  });
+  
+  console.log(coloredText);
 }
 
-displayCharacterRainbowBanner();
+displayGradientBanner();
 // Store the options globally so we can access them in the end function
 let currentOptions = {};
 // Flag to track if we've already shown the deepsearch suggestion
@@ -232,7 +242,7 @@ function end(data) {
 function error(data) {
 	// Show cursor if hidden due to blindsearch
 	if (data.module === 'blindsearch') {
-		process.stdout.write('\x1B[?25h'); // Show cursor
+		process.stdout.write('\x1B?25h'); // Show cursor
 	}
 
 	if (data.error) {
@@ -261,6 +271,11 @@ function showDeepSearchSuggestionIfNeeded() {
 async function getFeeds(site, options) {
 	// Store the options globally so we can access them in the end function
 	currentOptions = options;
+
+	// Add https:// if no protocol is specified
+	if (!site.match(/^https?:\/\//)) {
+		site = `https://${site}`;
+	}
 
 	const feedFinder = new FeedScout(site, options);
 	feedFinder.on('start', start);

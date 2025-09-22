@@ -19,6 +19,10 @@ function foundFeed(feeds) {
 export default class FeedScout extends EventEmitter {
 	constructor(site, options) {
 		super();
+		// Add https:// if no protocol is specified
+		if (!site.match(/^https?:\/\//)) {
+			site = `https://${site}`;
+		}
 		this.site = new URL(site).href; // normalize site link
 		this.options = options;
 		this.initPromise = null; // Store the initialization promise
