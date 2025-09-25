@@ -101,9 +101,7 @@ class Crawler extends EventEmitter {
 	// * not visited before
 	isValidUrl(url) {
 		try {
-			const isValid =
-				tldts.getDomain(url) == tldts.getDomain(this.startUrl) &&
-				!excludedFile(url);
+			const isValid = tldts.getDomain(url) == tldts.getDomain(this.startUrl) && !excludedFile(url);
 			return isValid;
 		} catch (error) {
 			// Emit error event with the specified pattern when an error occurs
@@ -120,14 +118,14 @@ class Crawler extends EventEmitter {
 
 		if (depth > this.maxDepth) return;
 		if (this.visitedUrls.has(url)) return;
-		
+
 		// Check if we've reached the maximum number of links to process
 		if (this.visitedUrls.size >= this.maxLinks) {
 			// If we've reached the limit, emit a message (only once) and don't process this page
 			if (!this.maxLinksReachedMessageEmitted) {
-				this.emit('log', { 
-					module: 'deepSearch', 
-					message: `Max links limit of ${this.maxLinks} reached. Stopping deep search.` 
+				this.emit('log', {
+					module: 'deepSearch',
+					message: `Max links limit of ${this.maxLinks} reached. Stopping deep search.`,
 				});
 				this.maxLinksReachedMessageEmitted = true;
 			}
@@ -137,33 +135,33 @@ class Crawler extends EventEmitter {
 		if (!this.isValidUrl(url)) return;
 		this.visitedUrls.add(url);
 		console.log(`[${depth}] ${url} ${this.visitedUrls.size}`);
-		
+
 		// Fetch the URL and handle errors properly
 		const response = await fetchWithTimeout(url, this.timeout); // Uses configurable timeout
-		
+
 		// Check if response is null (fetch failed) or not ok
 		if (!response) {
 			// Emit log with error information for failed fetch
-			this.emit('log', { 
-				module: 'deepSearch', 
+			this.emit('log', {
+				module: 'deepSearch',
 				url: url,
 				depth: depth,
-				error: 'Failed to fetch URL - timeout or network error'
+				error: 'Failed to fetch URL - timeout or network error',
 			});
 			return;
 		}
-		
+
 		if (!response.ok) {
 			// Emit log with error information for failed fetch
-			this.emit('log', { 
-				module: 'deepSearch', 
+			this.emit('log', {
+				module: 'deepSearch',
 				url: url,
 				depth: depth,
-				error: `HTTP ${response.status} ${response.statusText}`
+				error: `HTTP ${response.status} ${response.statusText}`,
 			});
 			return;
 		}
-		
+
 		const html = await response.text();
 		const { document } = parseHTML(html);
 		let links = document.querySelectorAll('a');
@@ -172,20 +170,20 @@ class Crawler extends EventEmitter {
 			let absoluteUrl = new URL(link.href, this.startUrl).href;
 			// Skip if we've already visited this URL
 			if (this.visitedUrls.has(absoluteUrl)) continue;
-			
+
 			// Check if we've reached the maximum number of links to process
 			if (this.visitedUrls.size >= this.maxLinks) {
 				// If we've reached the limit, emit a message (only once) and stop adding new links to the queue
 				if (!this.maxLinksReachedMessageEmitted) {
-					this.emit('log', { 
-						module: 'deepSearch', 
-						message: `Max links limit of ${this.maxLinks} reached. Stopping deep search.` 
+					this.emit('log', {
+						module: 'deepSearch',
+						message: `Max links limit of ${this.maxLinks} reached. Stopping deep search.`,
 					});
 					this.maxLinksReachedMessageEmitted = true;
 				}
 				break;
 			}
-			
+
 			try {
 				// Check if the link itself is a feed
 				const feedResult = await checkFeed(absoluteUrl);
@@ -193,64 +191,66 @@ class Crawler extends EventEmitter {
 					// Check if we already found this feed to avoid duplicates
 					const alreadyFound = this.feeds.some(feed => feed.url === absoluteUrl);
 					if (!alreadyFound) {
-						this.feeds.push({ 
-							url: absoluteUrl, 
+						this.feeds.push({
+							url: absoluteUrl,
 							type: feedResult.type,
-							title: feedResult.title
+							title: feedResult.title,
 						});
-						console.log('Found new feed:', { 
-							url: absoluteUrl, 
+						console.log('Found new feed:', {
+							url: absoluteUrl,
 							type: feedResult.type,
-							title: feedResult.title
+							title: feedResult.title,
 						});
 						// Emit log for found feed
-						this.emit('log', { 
-							module: 'deepSearch', 
+						this.emit('log', {
+							module: 'deepSearch',
 							url: absoluteUrl,
 							depth: depth + 1,
-							feedCheck: { isFeed: true, type: feedResult.type }
+							feedCheck: { isFeed: true, type: feedResult.type },
 						});
 					}
 				} else {
 					// Emit log for visited URL that is not a feed
-					this.emit('log', { 
-						module: 'deepSearch', 
+					this.emit('log', {
+						module: 'deepSearch',
 						url: absoluteUrl,
 						depth: depth + 1,
-						feedCheck: { isFeed: false }
+						feedCheck: { isFeed: false },
 					});
 				}
 			} catch (error) {
 				// Emit error event with the specified pattern when an error occurs
 				this.emit('error', { module: 'deepSearch', error: `Error checking feed ${absoluteUrl}: ${error.message}` });
 				// Also emit log with error information
-				this.emit('log', { 
-					module: 'deepSearch', 
+				this.emit('log', {
+					module: 'deepSearch',
 					url: absoluteUrl,
 					depth: depth + 1,
-					error: `Error checking feed: ${error.message}`
+					error: `Error checking feed: ${error.message}`,
 				});
 			}
-			// Then add the link to the queue for further crawling
-			this.queue.push({ url: absoluteUrl, depth: depth + 1 });
+			// Only add the link to the queue for further crawling if the next depth is within limits
+			if (depth + 1 <= this.maxDepth) {
+				this.queue.push({ url: absoluteUrl, depth: depth + 1 });
+			}
 		}
 	}
 } // class Crawler
 export default async function deepSearch(url, options = {}, instance = null) {
 	const crawler = new Crawler(url, options.depth || 3, 5, options.maxLinks || 1000);
 	crawler.timeout = (options.timeout || 5) * 1000; // Convert seconds to milliseconds
-	
+
 	// If we have an instance, forward crawler events to the instance
 	if (instance) {
-		crawler.on('start', (data) => instance.emit('start', data));
-		crawler.on('log', (data) => instance.emit('log', data));
-		crawler.on('error', (data) => instance.emit('error', data));
-		crawler.on('end', (data) => instance.emit('end', data));
+		crawler.on('start', data => instance.emit('start', data));
+		crawler.on('log', data => instance.emit('log', data));
+		crawler.on('error', data => instance.emit('error', data));
+		crawler.on('end', data => instance.emit('end', data));
 	}
-	
+
 	crawler.start();
 	// Create a promise that resolves when the queue is drained
-	await new Promise((resolve) => {
+	await new Promise(resolve => {
 		crawler.queue.drain(() => {
 			resolve();
 		});

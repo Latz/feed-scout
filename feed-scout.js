@@ -46,7 +46,7 @@ export default class FeedScout extends EventEmitter {
 
 					this.emit('initialized');
 				} catch (error) {
-					console.error(`Error fetching ${this.site}:`, error);
+					this.emit(`Error fetching ${this.site}:`, error);
 					this.content = '';
 					this.document = { querySelectorAll: () => [] };
 					this.emit('initialized');

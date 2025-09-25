@@ -4,41 +4,40 @@ import { createRequire } from 'module';
 import FeedScout from './feed-scout.js';
 import banner from './modules/banner.js';
 
-
 function displayGradientBanner() {
-  const text = banner;
-  const lines = text.split('\n');
-  let coloredText = '';
-  
-  // Simple blue to red gradient
-  const startColor = { r: 0, g: 0, b: 255 }; // Blue
-  const endColor = { r: 255, g: 0, b: 0 };   // Red
-  
-  // Count non-empty lines for gradient calculation
-  const nonEmptyLines = lines.filter(line => line.trim() !== '').length;
-  let nonEmptyIndex = 0;
-  
-  lines.forEach((line) => {
-    // Preserve empty lines
-    if (line.trim() === '') {
-      coloredText += line + '\n';
-      return;
-    }
-    
-    // Calculate color ratio for this line
-    const ratio = nonEmptyLines > 1 ? nonEmptyIndex / (nonEmptyLines - 1) : 0;
-    
-    // Calculate RGB values
-    const r = Math.round(startColor.r + ratio * (endColor.r - startColor.r));
-    const g = Math.round(startColor.g + ratio * (endColor.g - startColor.g));
-    const b = Math.round(startColor.b + ratio * (endColor.b - startColor.b));
-    
-    // Apply color to the entire line
-    coloredText += chalk.rgb(r, g, b)(line) + '\n';
-    nonEmptyIndex++;
-  });
-  
-  console.log(coloredText);
+	const text = banner;
+	const lines = text.split('\n');
+	let coloredText = '';
+
+	// Simple blue to red gradient
+	const startColor = { r: 0, g: 0, b: 255 }; // Blue
+	const endColor = { r: 255, g: 0, b: 0 }; // Red
+
+	// Count non-empty lines for gradient calculation
+	const nonEmptyLines = lines.filter(line => line.trim() !== '').length;
+	let nonEmptyIndex = 0;
+
+	lines.forEach(line => {
+		// Preserve empty lines
+		if (line.trim() === '') {
+			coloredText += line + '\n';
+			return;
+		}
+
+		// Calculate color ratio for this line
+		const ratio = nonEmptyLines > 1 ? nonEmptyIndex / (nonEmptyLines - 1) : 0;
+
+		// Calculate RGB values
+		const r = Math.round(startColor.r + ratio * (endColor.r - startColor.r));
+		const g = Math.round(startColor.g + ratio * (endColor.g - startColor.g));
+		const b = Math.round(startColor.b + ratio * (endColor.b - startColor.b));
+
+		// Apply color to the entire line
+		coloredText += chalk.rgb(r, g, b)(line) + '\n';
+		nonEmptyIndex++;
+	});
+
+	console.log(coloredText);
 }
 
 displayGradientBanner();
@@ -72,6 +71,7 @@ program
 	.option('-m, --metasearch', 'Meta search only')
 	.option('-b, --blindsearch', 'Blind search only')
 	.option('-d, --deepsearch', 'Enable deep search')
+	.option('-a, --all', 'Continue searching for feeds even after finding one')
 	.option('--depth <number>', 'Depth of deep search', 3)
 	.option('--max-links <number>', 'Maximum number of links to process during deep search', 1000)
 	.option('--timeout <seconds>', 'Timeout for fetch requests in seconds', 5)
@@ -301,21 +301,38 @@ async function getFeeds(site, options) {
 	// If not using exclusive options, run the standard search strategies
 	const searchStrategies = [feedFinder.metaLinks, feedFinder.checkAllAnchors, feedFinder.blindSearch];
 
-	// For `--all`, we want to run all strategies.
-	// For the default case, we stop after the first success.
 	let foundFeeds = false;
+	let allFeeds = [];
+
 	for (const strategy of searchStrategies) {
+		console.log('>', strategy.name);
 		const feeds = await strategy.call(feedFinder);
+		console.log('ready');
+		if (feeds && feeds.length > 0) {
+			allFeeds = [...allFeeds, ...feeds];
+
+			foundFeeds = true;
+		}
+		console.log('XXX');
+
 		// If not in 'all' mode, and feeds are found, we can stop.
 		if (!all && feeds?.length > 0) {
-			foundFeeds = true;
+			console.log('break');
 			break;
 		}
+
+		console.log('weiter');
 	}
 
-	// If deepsearch is enabled, run it after the other strategies
-	if (deepsearch) {
-		await feedFinder.deepSearch();
+	// If deepsearch is enabled or --all flag is used, run deep search after other strategies
+	console.log('DeepSeek, all', deepsearch, all);
+	if (deepsearch || all) {
+		// Pass the all option to deepSearch so it can continue searching even after finding feeds
+		const deepSearchFeeds = await feedFinder.deepSearch();
+		allFeeds = allFeeds.concat(deepSearchFeeds);
+
+		// Emit the end event with all found feeds
+		feedFinder.emit('end', { module: 'deepSearch', feeds: allFeeds, visitedUrls: 0 });
 		return;
 	}
 
