@@ -301,43 +301,29 @@ async function getFeeds(site, options) {
 	// If not using exclusive options, run the standard search strategies
 	const searchStrategies = [feedFinder.metaLinks, feedFinder.checkAllAnchors, feedFinder.blindSearch];
 
-	let foundFeeds = false;
+	if (deepsearch || all) {
+		searchStrategies.push(feedFinder.deepSearch);
+	}
+
 	let allFeeds = [];
 
 	for (const strategy of searchStrategies) {
-		console.log('>', strategy.name);
 		const feeds = await strategy.call(feedFinder);
-		console.log('ready');
 		if (feeds && feeds.length > 0) {
 			allFeeds = [...allFeeds, ...feeds];
-
-			foundFeeds = true;
 		}
-		console.log('XXX');
 
 		// If not in 'all' mode, and feeds are found, we can stop.
-		if (!all && feeds?.length > 0) {
-			console.log('break');
+		if (!all && allFeeds.length > 0) {
 			break;
 		}
-
-		console.log('weiter');
 	}
 
-	// If deepsearch is enabled or --all flag is used, run deep search after other strategies
-	console.log('DeepSeek, all', deepsearch, all);
-	if (deepsearch || all) {
-		// Pass the all option to deepSearch so it can continue searching even after finding feeds
-		const deepSearchFeeds = await feedFinder.deepSearch();
-		allFeeds = allFeeds.concat(deepSearchFeeds);
-
-		// Emit the end event with all found feeds
-		feedFinder.emit('end', { module: 'deepSearch', feeds: allFeeds, visitedUrls: 0 });
-		return;
-	}
+	// Emit the end event with all found feeds
+	feedFinder.emit('end', { module: 'combined', feeds: allFeeds, visitedUrls: 0 });
 
 	// If we're at the end of all searches and no feeds were found, show suggestion
-	if (!foundFeeds) {
+	if (allFeeds.length === 0) {
 		showDeepSearchSuggestionIfNeeded();
 	}
 }

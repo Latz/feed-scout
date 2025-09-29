@@ -65,18 +65,19 @@
 	"homepage": "https://github.com/yourusername/feed-scout#readme",
 	"dependencies": {
 		"async": "^3.2.6",
-		"chalk": "^5.4.1",
+		"chalk": "^5.6.2",
+		"commander": "^14.0.1",
 		"isurl-module": "^0.10.0",
 		"linkedom": "^0.18.7",
 		"normalize-url": "^8.0.1",
 		"parse5": "^7.2.1",
-		"tldts": "^6.1.76",
-		"truncate-url": "^2.1.0"
+		"tldts": "^7.0.16",
+		"truncate-url": "^3.0.0"
 	},
 	"engines": {
 		"node": ">=14.0.0"
 	},
 	"devDependencies": {
-		"vite": "^6.3.6"
+		"vite": "^7.1.7"
 	}
 }

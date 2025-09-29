@@ -34,7 +34,7 @@ export default class FeedScout extends EventEmitter {
 				try {
 					const response = await fetchWithTimeout(this.site);
 					if (!response) {
-						console.error(`Failed to fetch ${this.site}`);
+						this.emit('error', `Failed to fetch ${this.site}`);
 						this.content = '';
 						this.document = { querySelectorAll: () => [] };
 						this.emit('initialized');

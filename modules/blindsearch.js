@@ -22,6 +22,7 @@ export default async function blindSearch(instance) {
 	 * @type {string[]}
 	 */
 	const endpoints = [
+		'feed',
 		'rss.xml', // this seems to be to lmost often used file name
 		'.rss', // e.g. Reddit
 		'&_rss=1', //ebay
@@ -120,7 +121,7 @@ export default async function blindSearch(instance) {
 	let atomFound = false;
 	let i = 0;
 	const shouldCheckAll = instance.options?.all || false;
-	while (i < endpointUrls.length && !(shouldCheckAll ? false : (rssFound && atomFound))) {
+	while (i < endpointUrls.length && !(shouldCheckAll ? false : rssFound && atomFound)) {
 		let url = endpointUrls[i];
 
 		// Emit log for unvisited site

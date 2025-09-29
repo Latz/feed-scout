@@ -28,8 +28,9 @@ export default async function checkFeed(url, content = "") {
 }
 
 function checkRss(content) {
-  const regex = /<item>/i;
-  if (regex.test(content)) {
+  // First check for RSS version declaration
+  const rssVersionRegex = /<rss\s+version\s*=\s*["']2\.0["']/i;
+  if (rssVersionRegex.test(content)) {
     // Extract title from RSS feed (channel title, not item title)
     const channelRegex = /<channel>([\s\S]*?)<\/channel>/i;
     const channelMatch = content.match(channelRegex);
