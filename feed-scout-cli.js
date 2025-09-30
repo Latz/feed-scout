@@ -276,16 +276,35 @@ async function getFeeds(site, options) {
 	currentOptions = options;
 
 	// Add https:// if no protocol is specified
-	if (!site.match(/^https?:\/\//)) {
+	if (!site.includes('://')) {
 		site = `https://${site}`;
+	}
+
+	// Check for undocumented flag manually to allow error display in blind search
+	const showErrors = process.argv.includes('--show-errors');
+	if (showErrors) {
+		options.showErrors = true;
 	}
 
 	const feedFinder = new FeedScout(site, options);
 	feedFinder.on('start', start);
 	feedFinder.on('initialized', () => process.stdout.write(chalk.blue('\nInitialized\n\n')));
 	feedFinder.on('log', log);
-	feedFinder.on('end', end);
 	feedFinder.on('error', error);
+
+	// Temporarily disable the default end handler for individual strategies when accumulating results
+	let tempEndHandler;
+	if (options.maxFeeds && options.maxFeeds > 0) {
+		// Don't use default end handler when accumulating across strategies
+		tempEndHandler = (data) => {
+			// Just store the data but don't exit yet
+			return data;
+		};
+		feedFinder.on('end', tempEndHandler);
+	} else {
+		// Use default end handler for normal operation
+		feedFinder.on('end', end);
+	}
 
 	const { metasearch, blindsearch, deepsearch, all } = options;
 
@@ -309,47 +328,77 @@ async function getFeeds(site, options) {
 	let foundFeeds = false;
 	let totalFeeds = [];
 	
-	for (const strategy of searchStrategies) {
-		const feeds = await strategy.call(feedFinder);
-		if (feeds && feeds.length > 0) {
-			totalFeeds = totalFeeds.concat(feeds);
-			foundFeeds = true;
-			
-			// Check if we've reached the maximum number of feeds
+	// When using maxFeeds, we need to accumulate results across strategies
+	if (options.maxFeeds && options.maxFeeds > 0) {
+		for (const strategy of searchStrategies) {
+			const feeds = await strategy.call(feedFinder);
+			if (feeds && feeds.length > 0) {
+				totalFeeds = totalFeeds.concat(feeds);
+				foundFeeds = true;
+				
+				// Check if we've reached the maximum number of feeds
+				if (!all && options.maxFeeds > 0 && totalFeeds.length >= options.maxFeeds) {
+					// Trim the feeds to the maxFeeds limit
+					totalFeeds = totalFeeds.slice(0, options.maxFeeds);
+					break;
+				}
+			}
+			// If not in 'all' mode and we've reached maxFeeds, stop
 			if (!all && options.maxFeeds > 0 && totalFeeds.length >= options.maxFeeds) {
-				// Trim the feeds to the maxFeeds limit
-				totalFeeds = totalFeeds.slice(0, options.maxFeeds);
-				console.log(`Reached maximum feeds limit: ${totalFeeds.length} feeds found (max ${options.maxFeeds} allowed).`);
 				break;
 			}
 		}
-		// If not in 'all' mode and we've reached maxFeeds, stop
-		if (!all && options.maxFeeds > 0 && totalFeeds.length >= options.maxFeeds) {
-			break;
-		}
-	}
 
-	// If deepsearch is enabled and we haven't reached maxFeeds yet, run it after the other strategies
-	if (deepsearch) {
-		if (options.maxFeeds <= 0 || totalFeeds.length < options.maxFeeds) {
-			// Deep search will emit its own end event, but we want to accumulate results
-			// The deepSearch module will handle maxFeeds internally now
-			await feedFinder.deepSearch();
-			// Don't return here, as deepSearch will trigger the end event itself
-		} else {
-			// If maxFeeds already reached, return accumulated results
+		// If deepsearch is enabled and we haven't reached maxFeeds yet, run it after the other strategies
+		if (deepsearch) {
+			if (options.maxFeeds <= 0 || totalFeeds.length < options.maxFeeds) {
+				const deepFeeds = await feedFinder.deepSearch();
+				if (deepFeeds && deepFeeds.length > 0) {
+					totalFeeds = totalFeeds.concat(deepFeeds);
+					// Again check if we've exceeded maxFeeds
+					if (options.maxFeeds > 0 && totalFeeds.length > options.maxFeeds) {
+						totalFeeds = totalFeeds.slice(0, options.maxFeeds);
+					}
+				}
+			}
+			
+			// If maxFeeds was reached in earlier strategies, return accumulated results
 			end({ feeds: totalFeeds, module: 'all' });
+		} else {
+			// If we collected any feeds during the non-deepsearch phases, return them
+			if (totalFeeds.length > 0) {
+				end({ feeds: totalFeeds, module: 'all' });
+			} else {
+				// If we're at the end of all searches and no feeds were found, show suggestion
+				if (!foundFeeds) {
+					showDeepSearchSuggestionIfNeeded();
+				}
+			}
 		}
-		return;
-	}
-
-	// If we collected any feeds during the non-deepsearch phases, return them
-	if (totalFeeds.length > 0) {
-		end({ feeds: totalFeeds, module: 'all' });
 	} else {
-		// If we're at the end of all searches and no feeds were found, show suggestion
-		if (!foundFeeds) {
-			showDeepSearchSuggestionIfNeeded();
+		// For normal operation without maxFeeds, use the original behavior
+		for (const strategy of searchStrategies) {
+			const feeds = await strategy.call(feedFinder);
+			// If not in 'all' mode, and feeds are found, we can stop.
+			if (!all && feeds?.length > 0) {
+				foundFeeds = true;
+				break;
+			}
+		}
+
+		// If deepsearch is enabled, run it after the other strategies
+		if (deepsearch) {
+			await feedFinder.deepSearch();
+			return;
+		}
+		// If we collected any feeds during the non-deepsearch phases, return them
+		if (totalFeeds.length > 0) {
+			end({ feeds: totalFeeds, module: 'all' });
+		} else {
+			// If we're at the end of all searches and no feeds were found, show suggestion
+			if (!foundFeeds) {
+				showDeepSearchSuggestionIfNeeded();
+			}
 		}
 	}
 }

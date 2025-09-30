@@ -52,7 +52,6 @@ function checkRss(content) {
 	// First check for RSS version declaration (any version)
 	// This regex accounts for other attributes that might appear before the version
 	const rssVersionRegex = /<rss[^>]*\s+version\s*=\s*["'][\d.]+["']/i;
-	const matches = content.match(rssVersionRegex);
 	if (rssVersionRegex.test(content)) {
 		console.log('found rss version declaration');
 		const title = extractRssTitle(content);

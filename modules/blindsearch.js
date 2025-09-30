@@ -207,12 +207,13 @@ export default async function blindSearch(instance) {
 				}
 			}
 		} catch (error) {
-			// Log error to console instead of emitting error event to prevent process exit
-			// Emit error event with the specified pattern when an error occurs
-			instance.emit('error', {
-				module: 'blindsearch',
-				error: `Error fetching ${url}: ${error.message}`,
-			});
+			// Only show errors if the undocumented --show-errors flag is set
+			if (instance.options?.showErrors) {
+				instance.emit('error', {
+					module: 'blindsearch',
+					error: `Error fetching ${url}: ${error.message}`,
+				});
+			}
 		}
 
 		// Emit that a URL was checked, which will increment the counter and update the progress

@@ -20,7 +20,7 @@ export default class FeedScout extends EventEmitter {
 	constructor(site, options) {
 		super();
 		// Add https:// if no protocol is specified
-		if (!site.match(/^https?:\/\//)) {
+		if (!site.includes('://')) {
 			site = `https://${site}`;
 		}
 		this.site = new URL(site).href; // normalize site link
