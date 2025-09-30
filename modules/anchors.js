@@ -72,9 +72,19 @@ async function checkAnchors(instance) {
 	let noFeeds = [];
 	const anchors = instance.document.querySelectorAll('a');
 	const regex = /rss|feed|atom|json/gi;
+	const maxFeeds = instance.options?.maxFeeds || 0; // Maximum number of feeds to find (0 = no limit)
 	let count = 0;
 
 	for (const anchor of anchors) {
+		// Check if we've reached the maximum number of feeds
+		if (maxFeeds > 0 && feedUrls.length >= maxFeeds) {
+			instance.emit('log', {
+				module: 'anchors',
+				message: `Stopped due to reaching maximum feeds limit: ${feedUrls.length} feeds found (max ${maxFeeds} allowed).`
+			});
+			break;
+		}
+		
 		if (count++ % 10 === 0) {
 			instance.emit('log', { module: 'anchors', anchor });
 		}
@@ -123,6 +133,15 @@ async function checkAnchors(instance) {
 						type: feedResult.type,
 						feedTitle: feedResult.title
 					});
+					
+					// Check if we've reached the maximum number of feeds after adding
+					if (maxFeeds > 0 && feedUrls.length >= maxFeeds) {
+						instance.emit('log', {
+							module: 'anchors',
+							message: `Stopped due to reaching maximum feeds limit: ${feedUrls.length} feeds found (max ${maxFeeds} allowed).`
+						});
+						break;
+					}
 				} else {
 					noFeeds.push({
 						href: urlToCheck,

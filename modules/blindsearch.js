@@ -1,4 +1,69 @@
 /**
+ * Common feed endpoint paths to try during the blind search
+ * @type {string[]}
+ */
+const FEED_ENDPOINTS = [
+	'&_rss=1', //ebay
+	'.rss', // e.g. Reddit
+	'/blog?format=rss', // Squarespace
+	'/?format=feed', // Joomla
+	'/index.php?format=feed', // Joomla
+	'api/rss.xml', // API endpoints
+	'atom.xml',
+	'blog-feed.xml', //WIX sites
+	'catalog.xml', // product catalogs
+	'deals.xml', // deal/sale feeds
+	'episodes.rss', // episodic content
+	'events.rss', // calendar events
+	'extern.php?action=feed&type=atom',
+	'export/rss.xml', // export directories
+	'external?type=rss2',
+	'feed',
+	'feed',
+	'feed.aspx', // ASP.NET feeds
+	'feed.cml', // Wix, Weflow
+	'feed/atom',
+	'feed/atom.rss',
+	'feed/atom.xml',
+	'feed/rdf',
+	'feed/rss/',
+	'feed/rss.xml',
+	'feed/rss2',
+	'feeds',
+	'forum.rss', // forum posts
+	'gallery.rss', // image galleries
+	'index.php?action=.xml;type=rss',
+	'index.rss',
+	'index.xml',
+	'inventory.rss', // inventory updates
+	'jobs.rss', // job listings
+	'latest/feed',
+	'latest.rss',
+	'news.xml',
+	'podcast.rss', // audio content
+	'posts.rss',
+	'products.rss', // product feeds
+	'public/feed.xml', // public feeds
+	'rss',
+	'rss.aspx', // ASP.NET sites
+	'rss.cfm', // ColdFusion sites
+	'rss.php',
+	'rss/news/rss.xml',
+	'rss/rss.php',
+	'rssfeed.rdf',
+	'rssfeed.xml',
+	'rss.xml', // this seems to be to lmost often used file name
+	'sitenews',
+	'spip.php?page=backend',
+	'spip.php?page=backend-breve',
+	'spip.php?page=backend-sites',
+	'syndicate/rss.xml',
+	'syndication.php',
+	'videos.rss', // video content
+	'xml',
+];
+
+/**
  * Performs a "blind search" for RSS/Atom feeds by trying a list of common feed endpoint paths.
  * It traverses up the URL path from the instance's site URL to its origin,
  * appending various known feed endpoints at each level.
@@ -8,100 +73,34 @@
  * @param {object} instance.options - Options for the search.
  * @param {boolean} instance.options.keepQueryParams - Whether to keep query parameters from the original URL.
  * @param {function(string, object): void} instance.emit - A function to emit events (e.g., 'start', 'log', 'error', 'end').
- * @returns {Promise&lt;Array&lt;{url: string, feedType: string, title: string|null}&gt;&gt;} A promise that resolves to an array of found feed objects.
+ * @returns {Promise<Array<{url: string, feedType: string, title: string|null}>>} A promise that resolves to an array of found feed objects.
  *   Each object contains the `url` of the feed, its `feedType` ('rss' or 'atom'), and its `title` if available.
  */
 
 import checkFeed from './checkFeed.js';
 
-export default async function blindSearch(instance) {
-	instance.emit('start', { module: 'blindsearch', niceName: 'Blind search' });
-
-	/**
-	 * A list of common feed endpoint paths to try during the blind search.
-	 * @type {string[]}
-	 */
-	const endpoints = [
-		'feed',
-		'rss.xml', // this seems to be to lmost often used file name
-		'.rss', // e.g. Reddit
-		'&_rss=1', //ebay
-		'atom.xml',
-		'blog-feed.xml', //WIX sites
-		'extern.php?action=feed&type=atom',
-		'external?type=rss2',
-		'feed',
-		'feed.cml', // Wix, Weflow
-		'feed/atom.rss',
-		'feed/atom.xml',
-		'feed/atom',
-		'feed/rdf',
-		'feed/rss.xml',
-		'feed/rss/',
-		'feed/rss2',
-		'feeds',
-		'index.php?action=.xml;type=rss',
-		'index.rss',
-		'index.xml',
-		'latest.rss',
-		'latest/feed',
-		'news.xml',
-		'posts.rss',
-		'rss.php',
-		'rss',
-		'rss/news/rss.xml',
-		'rss/rss.php',
-		'rssfeed.rdf',
-		'sitenews',
-		'spip.php?page=backend-breve',
-		'spip.php?page=backend-sites',
-		'spip.php?page=backend',
-		'syndication.php',
-		'xml',
-		'rssfeed.xml',
-		'/index.php?format=feed', // Joomla
-		'/?format=feed', // Joomla
-		'/blog?format=rss', // Squarespace
-		'rss.aspx', // ASP.NET sites
-		'feed.aspx', // ASP.NET feeds
-		'rss.cfm', // ColdFusion sites
-		'products.rss', // product feeds
-		'catalog.xml', // product catalogs
-		'deals.xml', // deal/sale feeds
-		'inventory.rss', // inventory updates
-		'podcast.rss', // audio content
-		'episodes.rss', // episodic content
-		'events.rss', // calendar events
-		'jobs.rss', // job listings
-		'forum.rss', // forum posts
-		'gallery.rss', // image galleries
-		'videos.rss', // video content
-		'api/rss.xml', // API endpoints
-		'export/rss.xml', // export directories
-		'public/feed.xml', // public feeds
-		'syndicate/rss.xml',
-	];
-
-	// create an array of Urls with the potential feed paths down to the base url
-	const origin = new URL(instance.site).origin;
-	let path = instance.site;
+/**
+ * Generates all possible endpoint URLs by traversing up the URL path
+ * @param {string} siteUrl - The base site URL
+ * @param {boolean} keepQueryParams - Whether to keep query parameters
+ * @returns {string[]} Array of potential feed URLs
+ */
+function generateEndpointUrls(siteUrl, keepQueryParams) {
+	const origin = new URL(siteUrl).origin;
+	let path = siteUrl;
 	const endpointUrls = [];
-	const feeds = [];
-
-	// Use a Set to track found feed URLs and prevent duplicates
-	const foundUrls = new Set();
 
 	// Extract query parameters if the keepQueryParams option is enabled
 	let queryParams = '';
-	if (instance.options?.keepQueryParams) {
-		const urlObj = new URL(instance.site);
+	if (keepQueryParams) {
+		const urlObj = new URL(siteUrl);
 		queryParams = urlObj.search; // This includes the '?' character if there are query parameters
 	}
 
 	while (path.length >= origin.length) {
 		// Ensure we don't have a double slash by removing a trailing slash from the path.
 		const basePath = path.endsWith('/') ? path.slice(0, -1) : path;
-		endpoints.forEach(endpoint => {
+		FEED_ENDPOINTS.forEach(endpoint => {
 			// Add query parameters to the endpoint URL if they exist and the option is enabled
 			const urlWithParams = queryParams ? `${basePath}/${endpoint}${queryParams}` : `${basePath}/${endpoint}`;
 			endpointUrls.push(urlWithParams);
@@ -109,63 +108,105 @@ export default async function blindSearch(instance) {
 		path = path.slice(0, path.lastIndexOf('/'));
 	}
 
+	return endpointUrls;
+}
+
+/**
+ * Adds a found feed to the feeds array and updates the feed type flags
+ * @param {object} feedResult - The result from checkFeed
+ * @param {string} url - The URL of the found feed
+ * @param {Array} feeds - The array to add the feed to
+ * @param {boolean} rssFound - Whether an RSS feed has already been found
+ * @param {boolean} atomFound - Whether an Atom feed has already been found
+ * @returns {{rssFound: boolean, atomFound: boolean}} Updated flags
+ */
+function addFeed(feedResult, url, feeds, rssFound, atomFound) {
+	if (feedResult.type === 'rss') {
+		rssFound = true;
+	} else if (feedResult.type === 'atom') {
+		atomFound = true;
+	}
+
+	feeds.push({
+		url,
+		feedType: feedResult.type,
+		title: feedResult.title,
+	});
+
+	return { rssFound, atomFound };
+}
+
+/**
+ * Determines if the search should continue based on options and found feeds
+ * @param {number} currentIndex - Current index in the URL array
+ * @param {number} totalUrls - Total number of URLs to check
+ * @param {boolean} rssFound - Whether an RSS feed has been found
+ * @param {boolean} atomFound - Whether an Atom feed has already been found
+ * @param {boolean} shouldCheckAll - Whether to check all URLs regardless of what's found
+ * @returns {boolean} Whether to continue searching
+ */
+function shouldContinueSearch(currentIndex, totalUrls, rssFound, atomFound, shouldCheckAll) {
+	return currentIndex < totalUrls && !(shouldCheckAll ? false : rssFound && atomFound);
+}
+
+export default async function blindSearch(instance) {
+	instance.emit('start', { module: 'blindsearch', niceName: 'Blind search' });
+
+	// Generate all possible endpoint URLs
+	const endpointUrls = generateEndpointUrls(instance.site, instance.options?.keepQueryParams || false);
+
 	// Emit the total count so the CLI can display it
 	instance.emit('log', {
 		module: 'blindsearch',
 		totalCount: endpointUrls.length,
 	});
 
-	// we short stop if an atom and a rss feed is found (unless --all is specified)
-	// TODO: parallize
+	const feeds = [];
+	const foundUrls = new Set();
 	let rssFound = false;
 	let atomFound = false;
-	let i = 0;
 	const shouldCheckAll = instance.options?.all || false;
-	while (i < endpointUrls.length && !(shouldCheckAll ? false : rssFound && atomFound)) {
-		let url = endpointUrls[i];
+	const maxFeeds = instance.options?.maxFeeds || 0; // Maximum number of feeds to find (0 = no limit)
 
-		// Emit log for unvisited site
-		instance.emit('log', { module: 'blindsearch', url: false });
+	let i = 0;
+	while (shouldContinueSearch(i, endpointUrls.length, rssFound, atomFound, shouldCheckAll)) {
+		// Check if we've reached the maximum number of feeds
+		if (maxFeeds > 0 && feeds.length >= maxFeeds) {
+			instance.emit('log', {
+				module: 'blindsearch',
+				message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
+			});
+			break;
+		}
+		
+		const url = endpointUrls[i];
 
 		try {
-			let feedResult = await checkFeed(url);
-
-			// Emit log for visited site
-			instance.emit('log', { module: 'blindsearch', url: true });
+			const feedResult = await checkFeed(url);
 
 			// Only add feed if it hasn't been found before
 			if (feedResult && !foundUrls.has(url)) {
 				foundUrls.add(url); // Track this URL to prevent duplicates
 
-				if (feedResult.type === 'rss') {
-					rssFound = true;
-					feeds.push({
-						url,
-						feedType: feedResult.type,
-						title: feedResult.title,
+				({ rssFound, atomFound } = addFeed(feedResult, url, feeds, rssFound, atomFound));
+
+				// Emit updated feed count immediately when a feed is found
+				// This will trigger a display update with the new count
+				instance.emit('log', {
+					module: 'blindsearch',
+					foundFeedsCount: feeds.length,
+				});
+				
+				// Check if we've reached the maximum number of feeds
+				if (maxFeeds > 0 && feeds.length >= maxFeeds) {
+					instance.emit('log', {
+						module: 'blindsearch',
+						message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
 					});
-				}
-				if (feedResult.type === 'atom') {
-					atomFound = true;
-					feeds.push({
-						url,
-						feedType: feedResult.type,
-						title: feedResult.title,
-					});
-				}
-				// Handle JSON feeds as well
-				if (feedResult.type === 'json') {
-					feeds.push({
-						url,
-						feedType: feedResult.type,
-						title: feedResult.title,
-					});
+					break;
 				}
 			}
 		} catch (error) {
-			// Emit log for visited site (even if it failed)
-			instance.emit('log', { module: 'blindsearch', url: true });
-
 			// Log error to console instead of emitting error event to prevent process exit
 			// Emit error event with the specified pattern when an error occurs
 			instance.emit('error', {
@@ -173,8 +214,13 @@ export default async function blindSearch(instance) {
 				error: `Error fetching ${url}: ${error.message}`,
 			});
 		}
+
+		// Emit that a URL was checked, which will increment the counter and update the progress
+		instance.emit('log', { module: 'blindsearch', url: true });
+
 		i++;
 	}
+
 	instance.emit('end', { module: 'blindsearch', feeds });
 	return feeds;
 }

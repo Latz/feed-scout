@@ -4,40 +4,41 @@ import { createRequire } from 'module';
 import FeedScout from './feed-scout.js';
 import banner from './modules/banner.js';
 
+
 function displayGradientBanner() {
-	const text = banner;
-	const lines = text.split('\n');
-	let coloredText = '';
-
-	// Simple blue to red gradient
-	const startColor = { r: 0, g: 0, b: 255 }; // Blue
-	const endColor = { r: 255, g: 0, b: 0 }; // Red
-
-	// Count non-empty lines for gradient calculation
-	const nonEmptyLines = lines.filter(line => line.trim() !== '').length;
-	let nonEmptyIndex = 0;
-
-	lines.forEach(line => {
-		// Preserve empty lines
-		if (line.trim() === '') {
-			coloredText += line + '\n';
-			return;
-		}
-
-		// Calculate color ratio for this line
-		const ratio = nonEmptyLines > 1 ? nonEmptyIndex / (nonEmptyLines - 1) : 0;
-
-		// Calculate RGB values
-		const r = Math.round(startColor.r + ratio * (endColor.r - startColor.r));
-		const g = Math.round(startColor.g + ratio * (endColor.g - startColor.g));
-		const b = Math.round(startColor.b + ratio * (endColor.b - startColor.b));
-
-		// Apply color to the entire line
-		coloredText += chalk.rgb(r, g, b)(line) + '\n';
-		nonEmptyIndex++;
-	});
-
-	console.log(coloredText);
+  const text = banner;
+  const lines = text.split('\n');
+  let coloredText = '';
+  
+  // Simple blue to red gradient
+  const startColor = { r: 0, g: 0, b: 255 }; // Blue
+  const endColor = { r: 255, g: 0, b: 0 };   // Red
+  
+  // Count non-empty lines for gradient calculation
+  const nonEmptyLines = lines.filter(line => line.trim() !== '').length;
+  let nonEmptyIndex = 0;
+  
+  lines.forEach((line) => {
+    // Preserve empty lines
+    if (line.trim() === '') {
+      coloredText += line + '\n';
+      return;
+    }
+    
+    // Calculate color ratio for this line
+    const ratio = nonEmptyLines > 1 ? nonEmptyIndex / (nonEmptyLines - 1) : 0;
+    
+    // Calculate RGB values
+    const r = Math.round(startColor.r + ratio * (endColor.r - startColor.r));
+    const g = Math.round(startColor.g + ratio * (endColor.g - startColor.g));
+    const b = Math.round(startColor.b + ratio * (endColor.b - startColor.b));
+    
+    // Apply color to the entire line
+    coloredText += chalk.rgb(r, g, b)(line) + '\n';
+    nonEmptyIndex++;
+  });
+  
+  console.log(coloredText);
 }
 
 displayGradientBanner();
@@ -71,11 +72,13 @@ program
 	.option('-m, --metasearch', 'Meta search only')
 	.option('-b, --blindsearch', 'Blind search only')
 	.option('-d, --deepsearch', 'Enable deep search')
-	.option('-a, --all', 'Continue searching for feeds even after finding one')
 	.option('--depth <number>', 'Depth of deep search', 3)
 	.option('--max-links <number>', 'Maximum number of links to process during deep search', 1000)
 	.option('--timeout <seconds>', 'Timeout for fetch requests in seconds', 5)
 	.option('--keep-query-params', 'Keep query parameters from the original URL when searching')
+	.option('--check-foreign-feeds', 'Check if foreign domain URLs are feeds (but don\'t crawl them)')
+	.option('--max-errors <number>', 'Stop after a certain number of errors', 5)
+	.option('--max-feeds <number>', 'Stop search after finding a certain number of feeds', 0)
 	.description('Find feeds for site')
 	.action((site, options) => {
 		if (!site) {
@@ -301,29 +304,52 @@ async function getFeeds(site, options) {
 	// If not using exclusive options, run the standard search strategies
 	const searchStrategies = [feedFinder.metaLinks, feedFinder.checkAllAnchors, feedFinder.blindSearch];
 
-	if (deepsearch || all) {
-		searchStrategies.push(feedFinder.deepSearch);
-	}
-
-	let allFeeds = [];
-
+	// For `--all`, we want to run all strategies.
+	// For the default case, we stop after the first success or maxFeeds is reached.
+	let foundFeeds = false;
+	let totalFeeds = [];
+	
 	for (const strategy of searchStrategies) {
 		const feeds = await strategy.call(feedFinder);
 		if (feeds && feeds.length > 0) {
-			allFeeds = [...allFeeds, ...feeds];
+			totalFeeds = totalFeeds.concat(feeds);
+			foundFeeds = true;
+			
+			// Check if we've reached the maximum number of feeds
+			if (!all && options.maxFeeds > 0 && totalFeeds.length >= options.maxFeeds) {
+				// Trim the feeds to the maxFeeds limit
+				totalFeeds = totalFeeds.slice(0, options.maxFeeds);
+				console.log(`Reached maximum feeds limit: ${totalFeeds.length} feeds found (max ${options.maxFeeds} allowed).`);
+				break;
+			}
 		}
-
-		// If not in 'all' mode, and feeds are found, we can stop.
-		if (!all && allFeeds.length > 0) {
+		// If not in 'all' mode and we've reached maxFeeds, stop
+		if (!all && options.maxFeeds > 0 && totalFeeds.length >= options.maxFeeds) {
 			break;
 		}
 	}
 
-	// Emit the end event with all found feeds
-	feedFinder.emit('end', { module: 'combined', feeds: allFeeds, visitedUrls: 0 });
+	// If deepsearch is enabled and we haven't reached maxFeeds yet, run it after the other strategies
+	if (deepsearch) {
+		if (options.maxFeeds <= 0 || totalFeeds.length < options.maxFeeds) {
+			// Deep search will emit its own end event, but we want to accumulate results
+			// The deepSearch module will handle maxFeeds internally now
+			await feedFinder.deepSearch();
+			// Don't return here, as deepSearch will trigger the end event itself
+		} else {
+			// If maxFeeds already reached, return accumulated results
+			end({ feeds: totalFeeds, module: 'all' });
+		}
+		return;
+	}
 
-	// If we're at the end of all searches and no feeds were found, show suggestion
-	if (allFeeds.length === 0) {
-		showDeepSearchSuggestionIfNeeded();
+	// If we collected any feeds during the non-deepsearch phases, return them
+	if (totalFeeds.length > 0) {
+		end({ feeds: totalFeeds, module: 'all' });
+	} else {
+		// If we're at the end of all searches and no feeds were found, show suggestion
+		if (!foundFeeds) {
+			showDeepSearchSuggestionIfNeeded();
+		}
 	}
 }

@@ -48,6 +48,9 @@ export default function metaLinks(instance) {
   instance.emit("start", { module: "metalinks", niceName: "Meta links" });
   let feeds = [];
   
+  // Get maxFeeds from options, default to 0 (no limit)
+  const maxFeeds = instance.options?.maxFeeds || 0;
+  
   // Expanded list of feed types to check
   const feedTypes = [
     "feed+json",
@@ -68,8 +71,41 @@ export default function metaLinks(instance) {
         title: cleanTitle(link.title),
         type: getFeedType(link),
       });
+      
+      // Check if we've reached the maximum number of feeds
+      if (maxFeeds > 0 && feeds.length >= maxFeeds) {
+        instance.emit("log", { 
+          module: "metalinks", 
+          message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
+        });
+        return feeds;
+      }
     }
   });
+  
+  // Also check for alternate links with common feed-related type attributes
+  const alternateFeedLinks = instance.document.querySelectorAll('link[rel="alternate"][type*="rss"], link[rel="alternate"][type*="xml"], link[rel="alternate"][type*="atom"], link[rel="alternate"][type*="json"]');
+  for (let link of alternateFeedLinks) {
+    const fullHref = new URL(link.href, instance.site).href;
+    const alreadyAdded = feeds.some(feed => feed.url === fullHref);
+    
+    if (!alreadyAdded) {
+      feeds.push({
+        url: fullHref,
+        title: cleanTitle(link.title),
+        type: getFeedType(link),
+      });
+      
+      // Check if we've reached the maximum number of feeds
+      if (maxFeeds > 0 && feeds.length >= maxFeeds) {
+        instance.emit("log", { 
+          module: "metalinks", 
+          message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
+        });
+        return feeds;
+      }
+    }
+  }
   
   // Also check for alternate links that might be feeds based on href patterns
   const alternateLinks = instance.document.querySelectorAll('link[rel="alternate"]');
@@ -90,6 +126,15 @@ export default function metaLinks(instance) {
           title: cleanTitle(link.title),
           type: getFeedType(link),
         });
+        
+        // Check if we've reached the maximum number of feeds
+        if (maxFeeds > 0 && feeds.length >= maxFeeds) {
+          instance.emit("log", { 
+            module: "metalinks", 
+            message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
+          });
+          return feeds;
+        }
       }
     }
   }
