@@ -104,7 +104,7 @@ export default class FeedScout extends EventEmitter {
 	 */
 	async deepSearch() {
 		await this.initialize();
-		const crawler = deepSearch(this.site, this.options, this);
+		const crawler = deepSearch(this.site, this, this.options);
 		return crawler;
 	}
 } // class

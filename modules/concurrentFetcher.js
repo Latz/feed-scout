@@ -158,11 +158,11 @@ async function getAllLinks(urls, siteDomain, currentDepth, instance, options = {
 /**
  * Performs a deep search by crawling the website and checking for feeds
  * @param {string} url - The starting URL to crawl
- * @param {object} options - Options for the crawling process (optional)
  * @param {object} instance - The FeedScout instance for emitting events
+ * @param {object} options - Options for the crawling process (optional)
  * @returns {Promise<Array>} A promise that resolves to an array of found feeds
  */
-export default async function deepSearch(url, options = {}, instance) {
+export default async function deepSearch(url, instance, options = {}) {
 	const maxDepth = options.depth || 3;
 	const siteDomain = getMainDomain(url);
 	const allFeeds = new Set();
