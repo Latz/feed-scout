@@ -287,19 +287,12 @@ function showDeepSearchSuggestionIfNeeded() {
 // --------------------------------------------------------------------------------------
 
 /**
- * Main function to get feeds from a site using various search strategies
+ * Initializes the FeedScout instance with event handlers
  * @param {string} site - The website URL to search for feeds
- * @param {object} options - Options for the search (e.g., metasearch, blindsearch, deepsearch)
+ * @param {object} options - Options for the search
+ * @returns {FeedScout} Initialized FeedScout instance
  */
-async function getFeeds(site, options) {
-	// Store the options globally so we can access them in the end function
-	currentOptions = options;
-
-	// Add https:// if no protocol is specified
-	if (!site.includes('://')) {
-		site = `https://${site}`;
-	}
-
+function initializeFeedFinder(site, options) {
 	// Check for undocumented flag manually to allow error display in blind search
 	const showErrors = process.argv.includes('--show-errors');
 	if (showErrors) {
@@ -313,10 +306,9 @@ async function getFeeds(site, options) {
 	feedFinder.on('error', error);
 
 	// Temporarily disable the default end handler for individual strategies when accumulating results
-	let tempEndHandler;
 	if (options.maxFeeds && options.maxFeeds > 0) {
 		// Don't use default end handler when accumulating across strategies
-		tempEndHandler = (data) => {
+		const tempEndHandler = (data) => {
 			// Just store the data but don't exit yet
 			return data;
 		};
@@ -326,75 +318,49 @@ async function getFeeds(site, options) {
 		feedFinder.on('end', end);
 	}
 
-	const { metasearch, blindsearch, deepsearch, all } = options;
+	return feedFinder;
+}
 
-	// Handle exclusive search options
+/**
+ * Handles exclusive search options (when only one search type is specified)
+ * @param {FeedScout} feedFinder - The initialized FeedScout instance
+ * @param {object} options - Search options
+ * @returns {Promise<boolean>} True if an exclusive search was performed, false otherwise
+ */
+async function handleExclusiveSearch(feedFinder, options) {
+	const { metasearch, blindsearch } = options;
+
 	if (metasearch) {
 		await feedFinder.metaLinks();
 		showDeepSearchSuggestionIfNeeded();
-		return;
+		return true;
 	}
+	
 	if (blindsearch) {
 		await feedFinder.blindSearch();
 		showDeepSearchSuggestionIfNeeded();
-		return;
+		return true;
 	}
 
-	// If not using exclusive options, run the standard search strategies
-	const searchStrategies = [feedFinder.metaLinks, feedFinder.checkAllAnchors, feedFinder.blindSearch];
+	return false;
+}
 
-	// For `--all`, we want to run all strategies.
-	// For the default case, we stop after the first success or maxFeeds is reached.
+/**
+ * Executes standard search strategies
+ * @param {FeedScout} feedFinder - The FeedScout instance
+ * @param {object} options - Search options
+ * @returns {Promise<object>} Result with found feeds and status
+ */
+async function executeStandardSearch(feedFinder, options) {
+	const searchStrategies = [feedFinder.metaLinks, feedFinder.checkAllAnchors, feedFinder.blindSearch];
+	const { all } = options;
+	
 	let foundFeeds = false;
 	let totalFeeds = [];
-	
+
 	// When using maxFeeds, we need to accumulate results across strategies
 	if (options.maxFeeds && options.maxFeeds > 0) {
-		for (const strategy of searchStrategies) {
-			const feeds = await strategy.call(feedFinder);
-			if (feeds && feeds.length > 0) {
-				totalFeeds = totalFeeds.concat(feeds);
-				foundFeeds = true;
-				
-				// Check if we've reached the maximum number of feeds
-				if (!all && options.maxFeeds > 0 && totalFeeds.length >= options.maxFeeds) {
-					// Trim the feeds to the maxFeeds limit
-					totalFeeds = totalFeeds.slice(0, options.maxFeeds);
-					break;
-				}
-			}
-			// If not in 'all' mode and we've reached maxFeeds, stop
-			if (!all && options.maxFeeds > 0 && totalFeeds.length >= options.maxFeeds) {
-				break;
-			}
-		}
-
-		// If deepsearch is enabled and we haven't reached maxFeeds yet, run it after the other strategies
-		if (deepsearch) {
-			if (options.maxFeeds <= 0 || totalFeeds.length < options.maxFeeds) {
-				const deepFeeds = await feedFinder.deepSearch();
-				if (deepFeeds && deepFeeds.length > 0) {
-					totalFeeds = totalFeeds.concat(deepFeeds);
-					// Again check if we've exceeded maxFeeds
-					if (options.maxFeeds > 0 && totalFeeds.length > options.maxFeeds) {
-						totalFeeds = totalFeeds.slice(0, options.maxFeeds);
-					}
-				}
-			}
-			
-			// If maxFeeds was reached in earlier strategies, return accumulated results
-			end({ feeds: totalFeeds, module: 'all' });
-		} else {
-			// If we collected any feeds during the non-deepsearch phases, return them
-			if (totalFeeds.length > 0) {
-				end({ feeds: totalFeeds, module: 'all' });
-			} else {
-				// If we're at the end of all searches and no feeds were found, show suggestion
-				if (!foundFeeds) {
-					showDeepSearchSuggestionIfNeeded();
-				}
-			}
-		}
+		return await executeMaxFeedsSearch(feedFinder, searchStrategies, options);
 	} else {
 		// For normal operation without maxFeeds, use the original behavior
 		for (const strategy of searchStrategies) {
@@ -405,12 +371,71 @@ async function getFeeds(site, options) {
 				break;
 			}
 		}
+	}
 
-		// If deepsearch is enabled, run it after the other strategies
-		if (deepsearch) {
-			await feedFinder.deepSearch();
-			return;
+	return { foundFeeds, totalFeeds };
+}
+
+/**
+ * Executes search with maxFeeds handling
+ * @param {FeedScout} feedFinder - The FeedScout instance
+ * @param {Array} searchStrategies - Array of search strategy functions
+ * @param {object} options - Search options
+ * @returns {Promise<object>} Result with found feeds and status
+ */
+async function executeMaxFeedsSearch(feedFinder, searchStrategies, options) {
+	const { all } = options;
+	let foundFeeds = false;
+	let totalFeeds = [];
+
+	for (const strategy of searchStrategies) {
+		const feeds = await strategy.call(feedFinder);
+		if (feeds && feeds.length > 0) {
+			totalFeeds = totalFeeds.concat(feeds);
+			foundFeeds = true;
+			
+			// Check if we've reached the maximum number of feeds
+			if (!all && options.maxFeeds > 0 && totalFeeds.length >= options.maxFeeds) {
+				// Trim the feeds to the maxFeeds limit
+				totalFeeds = totalFeeds.slice(0, options.maxFeeds);
+				break;
+			}
 		}
+		// If not in 'all' mode and we've reached maxFeeds, stop
+		if (!all && options.maxFeeds > 0 && totalFeeds.length >= options.maxFeeds) {
+			break;
+		}
+	}
+
+	return { foundFeeds, totalFeeds };
+}
+
+/**
+ * Handles deep search execution
+ * @param {FeedScout} feedFinder - The FeedScout instance
+ * @param {object} options - Search options
+ * @param {Array} totalFeeds - Accumulated feeds from previous searches
+ * @param {boolean} foundFeeds - Whether feeds were found in previous searches
+ * @returns {Promise<void>}
+ */
+async function handleDeepSearch(feedFinder, options, totalFeeds, foundFeeds) {
+	const { deepsearch } = options;
+	
+	if (deepsearch) {
+		if (options.maxFeeds <= 0 || totalFeeds.length < options.maxFeeds) {
+			const deepFeeds = await feedFinder.deepSearch();
+			if (deepFeeds && deepFeeds.length > 0) {
+				totalFeeds = totalFeeds.concat(deepFeeds);
+				// Again check if we've exceeded maxFeeds
+				if (options.maxFeeds > 0 && totalFeeds.length > options.maxFeeds) {
+					totalFeeds = totalFeeds.slice(0, options.maxFeeds);
+				}
+			}
+		}
+		
+		// If maxFeeds was reached in earlier strategies, return accumulated results
+		end({ feeds: totalFeeds, module: 'all' });
+	} else {
 		// If we collected any feeds during the non-deepsearch phases, return them
 		if (totalFeeds.length > 0) {
 			end({ feeds: totalFeeds, module: 'all' });
@@ -421,4 +446,33 @@ async function getFeeds(site, options) {
 			}
 		}
 	}
+}
+
+/**
+ * Main function to get feeds from a site using various search strategies
+ * @param {string} site - The website URL to search for feeds
+ * @param {object} options - Options for the search (e.g., metasearch, blindsearch, deepsearch)
+ */
+async function getFeeds(site, options) {
+	// Store the options globally so we can access them in the end function
+	currentOptions = options;
+
+	// Add https:// if no protocol is specified
+	if (!site.includes('://')) {
+		site = `https://${site}`;
+	}
+
+	const feedFinder = initializeFeedFinder(site, options);
+	
+	// Handle exclusive search options
+	const isExclusiveSearch = await handleExclusiveSearch(feedFinder, options);
+	if (isExclusiveSearch) {
+		return;
+	}
+
+	// Execute standard search
+	const { foundFeeds, totalFeeds } = await executeStandardSearch(feedFinder, options);
+	
+	// Handle deep search if enabled
+	await handleDeepSearch(feedFinder, options, totalFeeds, foundFeeds);
 }
