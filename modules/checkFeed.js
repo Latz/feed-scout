@@ -48,17 +48,17 @@ export default async function checkFeed(url, content = '') {
 function extractRssTitle(content) {
 	// Extract title from RSS feed (channel title, not item title)
 	const channelRegex = /<channel>([\s\S]*?)<\/channel>/i;
-	const channelMatch = content.match(channelRegex);
+	const channelMatch = channelRegex.exec(content);
 	if (channelMatch) {
 		const channelContent = channelMatch[1];
 		const titleRegex = /<title>([\s\S]*?)<\/title>/i;
-		const titleMatch = channelContent.match(titleRegex);
+		const titleMatch = titleRegex.exec(channelContent);
 		const title = titleMatch ? cleanTitle(removeCDATA(titleMatch[1])) : null;
 		return title;
 	}
 	// Fallback to original method if channel parsing fails
 	const titleRegex = /<title>([\s\S]*?)<\/title>/i;
-	const match = content.match(titleRegex);
+	const match = titleRegex.exec(content);
 	const title = match ? cleanTitle(removeCDATA(match[1])) : null;
 	return title;
 }
@@ -96,7 +96,7 @@ function checkAtom(content) {
 	if (regex.test(content)) {
 		// Extract title from Atom feed (feed title, not entry title)
 		const titleRegex = /<title>([\s\S]*?)<\/title>/i;
-		const match = content.match(titleRegex);
+		const match = titleRegex.exec(content);
 		const title = match ? cleanTitle(removeCDATA(match[1])) : null;
 		return { type: 'atom', title };
 	}
