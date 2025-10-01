@@ -180,7 +180,7 @@ export default async function blindSearch(instance) {
  * @param {boolean} shouldCheckAll - Whether to check all URLs regardless of what's found
  * @param {number} maxFeeds - Maximum number of feeds to find (0 = no limit)
  * @param {object} instance - The FeedScout instance
- * @returns {object} Object containing the found feeds and search status
+ * @returns {Promise<object>} A promise that resolves to an object containing feeds, rssFound, and atomFound status
  */
 async function processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance) {
 	const feeds = [];
@@ -197,34 +197,18 @@ async function processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance) {
 		}
 
 		const url = endpointUrls[i];
+		const result = await processSingleFeedUrl(url, instance, foundUrls, feeds, rssFound, atomFound, maxFeeds);
 
-		try {
-			const feedResult = await checkFeed(url);
-
-			// Only add feed if it hasn't been found before
-			if (feedResult && !foundUrls.has(url)) {
-				foundUrls.add(url); // Track this URL to prevent duplicates
-
-				// Add feed and update tracking flags
-				const updatedFlags = addFeed(feedResult, url, feeds, rssFound, atomFound);
-				rssFound = updatedFlags.rssFound;
-				atomFound = updatedFlags.atomFound;
-
-				// Emit updated feed count immediately when a feed is found
-				// This will trigger a display update with the new count
-				instance.emit('log', {
-					module: 'blindsearch',
-					foundFeedsCount: feeds.length,
-				});
-
-				// Check if we've reached the maximum number of feeds
-				if (maxFeeds > 0 && feeds.length >= maxFeeds) {
-					await handleMaxFeedsReached(instance, feeds, maxFeeds);
-					break;
-				}
+		// Update tracking flags if a feed was found
+		if (result.found) {
+			rssFound = result.rssFound;
+			atomFound = result.atomFound;
+			
+			// Check if we've reached the maximum number of feeds
+			if (maxFeeds > 0 && feeds.length >= maxFeeds) {
+				await handleMaxFeedsReached(instance, feeds, maxFeeds);
+				break;
 			}
-		} catch (error) {
-			await handleFeedError(instance, url, error);
 		}
 
 		// Emit that a URL was checked, which will increment the counter and update the progress
@@ -234,6 +218,46 @@ async function processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance) {
 	}
 
 	return { feeds, rssFound, atomFound };
+}
+
+/**
+ * Processes a single feed URL
+ * @param {string} url - The URL to process
+ * @param {object} instance - The FeedScout instance
+ * @param {Set} foundUrls - Set of already found URLs
+ * @param {Array} feeds - Array of found feeds
+ * @param {boolean} rssFound - Whether an RSS feed has been found
+ * @param {boolean} atomFound - Whether an Atom feed has been found
+ * @param {number} maxFeeds - Maximum number of feeds to find (0 = no limit)
+ * @returns {Promise<object>} A promise that resolves to an object containing found status and updated flags
+ */
+async function processSingleFeedUrl(url, instance, foundUrls, feeds, rssFound, atomFound, maxFeeds) {
+	try {
+		const feedResult = await checkFeed(url);
+
+		// Only add feed if it hasn't been found before
+		if (feedResult && !foundUrls.has(url)) {
+			foundUrls.add(url); // Track this URL to prevent duplicates
+
+			// Add feed and update tracking flags
+			const updatedFlags = addFeed(feedResult, url, feeds, rssFound, atomFound);
+			rssFound = updatedFlags.rssFound;
+			atomFound = updatedFlags.atomFound;
+
+			// Emit updated feed count immediately when a feed is found
+			// This will trigger a display update with the new count
+			instance.emit('log', {
+				module: 'blindsearch',
+				foundFeedsCount: feeds.length,
+			});
+
+			return { found: true, rssFound, atomFound };
+		}
+	} catch (error) {
+		await handleFeedError(instance, url, error);
+	}
+	
+	return { found: false, rssFound, atomFound };
 }
 
 /**
