@@ -6,6 +6,11 @@ import tldts from 'tldts';
 import EventEmitter from './eventEmitter.js';
 
 class ConcurrentFetcher {
+	/**
+	 * Creates a new ConcurrentFetcher instance
+	 * @param {number} maxConcurrent - Maximum number of concurrent requests (default: 5)
+	 * @param {number} timeout - Timeout in milliseconds for each request (default: 5000)
+	 */
 	constructor(maxConcurrent = 5, timeout = 5000) {
 		this.maxConcurrent = maxConcurrent;
 		this.timeout = timeout;
@@ -13,6 +18,11 @@ class ConcurrentFetcher {
 		this.queue = [];
 	}
 
+	/**
+	 * Fetches a URL with concurrency control
+	 * @param {string} url - The URL to fetch
+	 * @returns {Promise<string|null>} A promise that resolves to the content string or null if fetch failed
+	 */
 	async fetch(url) {
 		if (this.active >= this.maxConcurrent) {
 			await new Promise(resolve => this.queue.push(resolve));
@@ -35,6 +45,15 @@ class ConcurrentFetcher {
 	}
 }
 
+/**
+ * Processes a single URL by fetching its content and checking for feeds and links
+ * @param {string} url - The URL to process
+ * @param {string} baseUrl - The base URL for relative link resolution
+ * @param {string} siteDomain - The domain of the site being crawled
+ * @param {ConcurrentFetcher} fetcher - The concurrent fetcher instance
+ * @param {object} instance - The FeedScout instance for emitting events
+ * @returns {Promise<object>} A promise that resolves to an object containing links and feeds found
+ */
 async function processSingleUrl(url, baseUrl, siteDomain, fetcher, instance) {
 	try {
 		const content = await fetcher.fetch(url);
@@ -100,6 +119,15 @@ async function processSingleUrl(url, baseUrl, siteDomain, fetcher, instance) {
 	}
 }
 
+/**
+ * Retrieves all links from a list of URLs at a given depth
+ * @param {Array<string>} urls - The URLs to process
+ * @param {string} siteDomain - The domain of the site being crawled
+ * @param {number} currentDepth - The current depth of the crawling process
+ * @param {object} options - Options for the crawling process (optional)
+ * @param {object} instance - The FeedScout instance for emitting events
+ * @returns {Promise<object>} A promise that resolves to an object containing links and feeds found
+ */
 async function getAllLinks(urls, siteDomain, currentDepth, options = {}, instance) {
 	const fetcher = new ConcurrentFetcher(
 		options.maxConcurrent || 5,
@@ -133,6 +161,13 @@ async function getAllLinks(urls, siteDomain, currentDepth, options = {}, instanc
 	};
 }
 
+/**
+ * Performs a deep search by crawling the website and checking for feeds
+ * @param {string} url - The starting URL to crawl
+ * @param {object} options - Options for the crawling process (optional)
+ * @param {object} instance - The FeedScout instance for emitting events
+ * @returns {Promise<Array>} A promise that resolves to an array of found feeds
+ */
 export default async function deepSearch(url, options = {}, instance) {
 	const maxDepth = options.depth || 3;
 	const siteDomain = getMainDomain(url);

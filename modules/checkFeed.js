@@ -14,6 +14,12 @@ function cleanTitle(title) {
 	return title.replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Checks if a URL is a feed (RSS, Atom, or JSON) by examining its content
+ * @param {string} url - The URL to check
+ * @param {string} content - The content to check (optional, will fetch if not provided)
+ * @returns {Promise<object|null>} An object containing the feed type and title, or null if not a feed
+ */
 export default async function checkFeed(url, content = '') {
 	// only fetch content if it's not provided by the caller
 	if (!content) {

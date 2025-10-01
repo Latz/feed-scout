@@ -1,5 +1,10 @@
 import truncateUrl from 'truncate-url';
 
+/**
+ * Extracts the main domain from a URL (e.g., example.com from www.example.com)
+ * @param {string} url - The URL to extract the main domain from
+ * @returns {string} The main domain
+ */
 export function getMainDomain(url) {
 	const urlObject = new URL(url);
 	const parts = urlObject.hostname.split('.');
@@ -15,6 +20,12 @@ export function getMainDomain(url) {
 	return parts.slice(-2).join('.');
 }
 
+/**
+ * Truncates a URL in a smart way, keeping the domain intact and truncating the path
+ * @param {string} url - The URL to truncate
+ * @param {number} maxLength - The maximum length of the truncated URL (default: 50)
+ * @returns {string} The truncated URL
+ */
 export function smartTruncateUrl(url, maxLength = 50) {
 	try {
 		const urlObj = new URL(url);

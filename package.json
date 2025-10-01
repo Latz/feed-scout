@@ -39,7 +39,8 @@
 		"dist"
 	],
 	"scripts": {
-		"test": "npm run test:eventemitter && npm run test:anchors && npm run test:common && npm run test:spinner && npm run test:fetchcontroller && npm run test:feed-scout && npm run test:main",
+		"test": "node tests/run-tests.js",
+		"test:unit": "node --test tests/*.test.js",
 		"build": "vite build"
 	},
 	"keywords": [

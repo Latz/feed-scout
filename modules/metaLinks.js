@@ -1,4 +1,9 @@
 // Helper function to clean titles by removing excessive whitespace and newlines
+/**
+ * Cleans titles by removing excessive whitespace and newlines
+ * @param {string} title - The title to clean
+ * @returns {string} The cleaned title
+ */
 function cleanTitle(title) {
   if (!title) return title;
   // Remove leading/trailing whitespace and collapse multiple whitespace characters
@@ -6,6 +11,11 @@ function cleanTitle(title) {
 }
 
 // Helper function to determine feed type from link element
+/**
+ * Determines the feed type from a link element based on its type attribute or href
+ * @param {object} link - The link element to determine the feed type from
+ * @returns {string} The determined feed type ('rss', 'atom', or 'json'), defaults to 'rss'
+ */
 function getFeedType(link) {
   // Extract type from type attribute if present
   if (link.type) {
@@ -44,6 +54,11 @@ function getFeedType(link) {
   return 'rss';
 }
 
+/**
+ * Searches for feeds using meta links in the page (link tags in head)
+ * @param {object} instance - The FeedScout instance containing document and site info
+ * @returns {Array} An array of found feed objects containing url, title, and type
+ */
 export default function metaLinks(instance) {
   instance.emit("start", { module: "metalinks", niceName: "Meta links" });
   let feeds = [];

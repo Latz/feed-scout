@@ -1,4 +1,9 @@
 // Helper function to clean titles by removing excessive whitespace and newlines
+/**
+ * Cleans titles by removing excessive whitespace and newlines
+ * @param {string} title - The title to clean
+ * @returns {string} The cleaned title
+ */
 function cleanTitle(title) {
   if (!title) return title;
   // Remove leading/trailing whitespace and collapse multiple whitespace characters
@@ -6,6 +11,11 @@ function cleanTitle(title) {
 }
 
 // Helper function to detect common feed path patterns
+/**
+ * Detects if a URL path is likely to be a feed based on common patterns
+ * @param {string} href - The URL path to check
+ * @returns {boolean} True if the path matches common feed patterns, false otherwise
+ */
 function isLikelyFeedPath(href) {
   // Common feed path patterns
   const commonFeedPaths = [
@@ -26,6 +36,11 @@ function isLikelyFeedPath(href) {
 }
 
 // Helper functions to properly classify URLs
+/**
+ * Checks if a URL is a valid HTTP or HTTPS URL
+ * @param {string} url - The URL to validate
+ * @returns {boolean} True if the URL is valid and has HTTP or HTTPS protocol, false otherwise
+ */
 function isValidHttpUrl(url) {
 	try {
 		const parsed = new URL(url);
@@ -36,6 +51,11 @@ function isValidHttpUrl(url) {
 	}
 }
 
+/**
+ * Checks if a URL is a relative path (not an absolute URL)
+ * @param {string} url - The URL to check
+ * @returns {boolean} True if the URL is a relative path, false otherwise
+ */
 function isRelativePath(url) {
 	// Check if it's not an absolute URL and doesn't contain a scheme
 	try {
@@ -49,6 +69,12 @@ function isRelativePath(url) {
 }
 
 // Helper function to check if a URL is from the same domain as the base URL
+/**
+ * Checks if a URL is from the same domain as the base URL
+ * @param {string} url - The URL to check
+ * @param {string} baseUrl - The base URL to compare against
+ * @returns {boolean} True if both URLs are from the same domain, false otherwise
+ */
 function isSameDomain(url, baseUrl) {
 	try {
 		const urlObj = new URL(url);
@@ -66,6 +92,11 @@ import { parseHTML } from 'linkedom';
 
 // noFeeds: Link with "RSS/Feed/Atom/Json" in the title but that aren't feeds. Check if they lead to a feed
 
+/**
+ * Checks all anchor tags on the page for potential feed links
+ * @param {object} instance - The FeedScout instance containing document and site info
+ * @returns {Promise<Array>} A promise that resolves to an array of [feedUrls, noFeeds] where feedUrls are found feeds and noFeeds are links that looked like feeds but weren't
+ */
 async function checkAnchors(instance) {
 	const baseUrl = new URL(instance.site); // Keep full URL for proper relative URL resolution
 	let feedUrls = [];
@@ -158,6 +189,11 @@ async function checkAnchors(instance) {
 }
 
 // ---------------------------------------------------------------------------------------
+/**
+ * Fetches and parses a document from a URL
+ * @param {string} url - The URL to fetch and parse
+ * @returns {Promise<object|null>} A promise that resolves to the parsed document or null if fetch failed
+ */
 async function getDocument(url) {
 	try {
 		const response = await fetchWithTimeout(url);
@@ -175,6 +211,11 @@ async function getDocument(url) {
 }
 // ---------------------------------------------------------------------------------------
 
+/**
+ * Main function to check all anchors for feeds and return only the feed URLs
+ * @param {object} instance - The FeedScout instance containing document and site info
+ * @returns {Promise<Array>} A promise that resolves to an array of found feed URLs
+ */
 export default async function checkAllAnchors(instance) {
 	instance.emit('start', {
 		module: 'checkAllAnchors',

@@ -105,6 +105,10 @@ class Crawler extends EventEmitter {
 		});
 	} // constructor
 
+	/**
+	 * Starts the crawling process
+	 * @returns {Array} Array of found feeds
+	 */
 	start() {
 		this.queue.push({ url: this.startUrl, depth: 0 });
 		this.emit('start', { module: 'deepSearch', niceName: 'Deep search' });
@@ -120,6 +124,11 @@ class Crawler extends EventEmitter {
 	// * valid
 	// * from same domain
 	// * not visited before
+	/**
+	 * Checks if a URL is valid (same domain, not excluded file type)
+	 * @param {string} url - The URL to validate
+	 * @returns {boolean} True if the URL is valid, false otherwise
+	 */
 	isValidUrl(url) {
 		try {
 			const isValid = tldts.getDomain(url) == tldts.getDomain(this.startUrl) && !excludedFile(url);
@@ -149,6 +158,13 @@ class Crawler extends EventEmitter {
 	}
 
 	// ----------------------------------------------------------------------------------
+	/**
+	 * Crawls a single page, extracting links and checking for feeds
+	 * @param {object} task - The task object containing the URL and depth
+	 * @param {string} task.url - The URL to crawl
+	 * @param {number} task.depth - The current depth of crawling
+	 * @returns {Promise<void>} A promise that resolves when the page has been crawled
+	 */
 	async crawlPage(task) {
 		let { url, depth } = task;
 		// wait 0.5 seconds

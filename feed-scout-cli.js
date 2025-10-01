@@ -5,6 +5,9 @@ import FeedScout from './feed-scout.js';
 import banner from './modules/banner.js';
 
 
+/**
+ * Displays the banner with a gradient color effect
+ */
 function displayGradientBanner() {
   const text = banner;
   const lines = text.split('\n');
@@ -187,6 +190,10 @@ function handleBlindSearchLog(data) {
 	process.stdout.write(displayText);
 }
 
+/**
+ * Handles the start event, initializing progress tracking
+ * @param {object} data - The data object containing module and display information
+ */
 function start(data) {
 	// Reset counters when starting a new search
 	visitedCount = 0;
@@ -202,6 +209,10 @@ function start(data) {
 	process.stdout.write(`Start ${data.niceName} `);
 }
 
+/**
+ * Handles the end event, displaying results and cleaning up
+ * @param {object} data - The data object containing feed results and module information
+ */
 function end(data) {
 	// Add newline after progress display
 	if (progressLineActive) {
@@ -242,6 +253,10 @@ function end(data) {
 	// Exit successfully
 	process.exit(0);
 }
+/**
+ * Handles error events and displays error messages
+ * @param {object} data - The error data object containing module and error information
+ */
 function error(data) {
 	// Show cursor if hidden due to blindsearch
 	if (data.module === 'blindsearch') {
@@ -271,6 +286,11 @@ function showDeepSearchSuggestionIfNeeded() {
 
 // --------------------------------------------------------------------------------------
 
+/**
+ * Main function to get feeds from a site using various search strategies
+ * @param {string} site - The website URL to search for feeds
+ * @param {object} options - Options for the search (e.g., metasearch, blindsearch, deepsearch)
+ */
 async function getFeeds(site, options) {
 	// Store the options globally so we can access them in the end function
 	currentOptions = options;
