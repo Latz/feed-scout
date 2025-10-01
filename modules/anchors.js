@@ -17,8 +17,9 @@ function cleanTitle(title) {
  * @returns {boolean} True if the path matches common feed patterns, false otherwise
  */
 function isLikelyFeedPath(href) {
-  // Common feed path patterns
+  // Common feed path patterns organized by category
   const commonFeedPaths = [
+    // Standard RSS/Atom paths
     '/rss/',
     '/rss',
     '/feed',
@@ -28,7 +29,195 @@ function isLikelyFeedPath(href) {
     '.xml',
     '.json',
     '/syndication/',
-    '/feeds/'
+    '/feeds/',
+    
+    // Blog platform specific paths
+    '/blog/feed',           // Generic blog feeds
+    '/blog/rss',
+    '/blog/atom',
+    '/blog/feeds',
+    '/weblog/rss',          // Older weblog format
+    '/weblog/atom',
+    
+    // WordPress specific paths
+    '/feed/rss/',
+    '/feed/rss2/',
+    '/feed/atom/',
+    '/feed/rdf/',
+    '/?feed=rss2',
+    '/?feed=atom',
+    '/wp-feed.php',         // Older WordPress feed
+    '/wp-rss.php',          // Very old WordPress RSS
+    '/wp-rss2.php',         // Old WordPress RSS2
+    '/wp-atom.php',         // Old WordPress Atom
+    '/wp-rdf.php',          // Old WordPress RDF
+    
+    // News sites and publications
+    '/rss/news/',
+    '/rss/articles/',
+    '/rss/latest/',
+    '/atom/news/',
+    '/news/rss',
+    '/news/atom',
+    '/articles/feed',
+    '/latest/feed',
+    
+    // E-commerce and product feeds
+    '/products/rss',
+    '/products/atom',
+    '/catalog/feed',
+    '/inventory/feed',
+    '/deals/feed',
+    '/specials/feed',
+    '/promotions/feed',
+    
+    // Podcast and media feeds
+    '/podcast/rss',
+    '/podcast/atom',
+    '/podcasts/feed',
+    '/audio/feed',
+    '/video/feed',
+    '/media/feed',
+    '/episodes/feed',
+    '/shows/feed',
+    
+    // Social media and community feeds
+    '/community/feed',
+    '/forum/rss',
+    '/forum/atom',
+    '/discussions/feed',
+    '/comments/feed',
+    '/reviews/feed',
+    
+    // Event and calendar feeds
+    '/events/feed',
+    '/calendar/feed',
+    '/schedule/feed',
+    '/agenda/feed',
+    
+    // Job and career feeds
+    '/jobs/feed',
+    '/careers/feed',
+    '/opportunities/feed',
+    '/vacancies/feed',
+    
+    // Content management systems
+    '/content/feed',
+    '/pages/feed',
+    '/documents/feed',
+    '/resources/feed',
+    
+    // Newsletter and email feeds
+    '/newsletter/feed',
+    '/emails/feed',
+    '/mailinglist/feed',
+    '/subscription/feed',
+    
+    // Custom and alternative paths
+    '/newsfeed',
+    '/rssfeed',
+    '/atomfeed',
+    '/jsonfeed',
+    '/feed.json',
+    '/feed.xml',
+    '/rss.xml',
+    '/atom.xml',
+    '/feed.rss',
+    '/feed.atom',
+    '/index.rss',
+    '/index.atom',
+    '/index.xml',
+    '/rss/index.xml',
+    '/atom/index.xml',
+    
+    // International variations
+    '/actualites/feed',     // French news
+    '/noticias/feed',       // Spanish news
+    '/nachrichten/feed',    // German news
+    '/novosti/feed',        // Russian news
+    '/nieuws/feed',         // Dutch news
+    
+    // Query parameter based feeds
+    '?rss=1',
+    '?atom=1',
+    '?feed=rss',
+    '?feed=atom',
+    '?format=rss',
+    '?format=atom',
+    '?format=feed',
+    
+    // API style feeds
+    '/api/feed',
+    '/api/rss',
+    '/api/atom',
+    '/api/v1/feed',
+    '/api/v2/feed',
+    '/v1/feed',
+    '/v2/feed',
+    
+    // Legacy and alternative extensions
+    '.rdf',                 // RDF feeds
+    '/rdf',
+    '/rdf/',
+    '.opml',                // OPML subscription lists
+    '/opml',
+    '/opml/',
+    
+    // Category and tag feeds
+    '/category/*/feed',
+    '/tag/*/feed',
+    '/topics/feed',
+    '/tags/feed',
+    
+    // User and author feeds
+    '/author/*/feed',
+    '/user/*/feed',
+    '/profile/*/feed',
+    
+    // Time-based feeds
+    '/daily/feed',
+    '/weekly/feed',
+    '/monthly/feed',
+    '/yearly/feed',
+    '/archive/feed',
+    
+    // Specialized content feeds
+    '/press/feed',
+    '/releases/feed',
+    '/announcements/feed',
+    '/updates/feed',
+    '/changelog/feed',
+    '/revisions/feed',
+    
+    // Mobile and app feeds
+    '/mobile/feed',
+    '/app/feed',
+    '/api/mobile/feed',
+    
+    // Regional and local feeds
+    '/local/feed',
+    '/regional/feed',
+    '/national/feed',
+    '/international/feed',
+    
+    // Industry specific feeds
+    '/industry/feed',
+    '/sector/feed',
+    '/market/feed',
+    '/finance/feed',
+    '/sports/feed',
+    '/entertainment/feed',
+    '/technology/feed',
+    '/science/feed',
+    '/health/feed',
+    '/education/feed',
+    
+    // Aggregation and compilation feeds
+    '/all/feed',
+    '/everything/feed',
+    '/combined/feed',
+    '/aggregate/feed',
+    '/compilation/feed'
   ];
   
   // Check if href matches any common feed path pattern
