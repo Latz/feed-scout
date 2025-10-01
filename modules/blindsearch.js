@@ -72,6 +72,9 @@ const FEED_ENDPOINTS = [
  * @param {string} instance.site - The base URL to start the blind search from.
  * @param {object} instance.options - Options for the search.
  * @param {boolean} instance.options.keepQueryParams - Whether to keep query parameters from the original URL.
+ * @param {boolean} instance.options.all - Whether to find all feeds instead of stopping at one of each type
+ * @param {number} instance.options.maxFeeds - Maximum number of feeds to find before stopping (0 = no limit)
+ * @param {boolean} instance.options.showErrors - Whether to show errors during the search
  * @param {function(string, object): void} instance.emit - A function to emit events (e.g., 'start', 'log', 'error', 'end').
  * @returns {Promise<Array<{url: string, feedType: string, title: string|null}>>} A promise that resolves to an array of found feed objects.
  *   Each object contains the `url` of the feed, its `feedType` ('rss' or 'atom'), and its `title` if available.
@@ -168,7 +171,28 @@ export default async function blindSearch(instance) {
 	const shouldCheckAll = instance.options?.all || false;
 	const maxFeeds = instance.options?.maxFeeds || 0; // Maximum number of feeds to find (0 = no limit)
 
+	// Process each URL to find feeds
+	const results = await processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance);
+
+	instance.emit('end', { module: 'blindsearch', feeds: results.feeds });
+	return results.feeds;
+}
+
+/**
+ * Processes a list of URLs to find feeds
+ * @param {string[]} endpointUrls - Array of URLs to check for feeds
+ * @param {boolean} shouldCheckAll - Whether to check all URLs regardless of what's found
+ * @param {number} maxFeeds - Maximum number of feeds to find (0 = no limit)
+ * @param {object} instance - The FeedScout instance
+ * @returns {object} Object containing the found feeds and search status
+ */
+async function processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance) {
+	const feeds = [];
+	const foundUrls = new Set();
+	let rssFound = false;
+	let atomFound = false;
 	let i = 0;
+
 	while (shouldContinueSearch(i, endpointUrls.length, rssFound, atomFound, shouldCheckAll)) {
 		// Check if we've reached the maximum number of feeds
 		if (maxFeeds > 0 && feeds.length >= maxFeeds) {
@@ -178,7 +202,7 @@ export default async function blindSearch(instance) {
 			});
 			break;
 		}
-		
+
 		const url = endpointUrls[i];
 
 		try {
@@ -196,7 +220,7 @@ export default async function blindSearch(instance) {
 					module: 'blindsearch',
 					foundFeedsCount: feeds.length,
 				});
-				
+
 				// Check if we've reached the maximum number of feeds
 				if (maxFeeds > 0 && feeds.length >= maxFeeds) {
 					instance.emit('log', {
@@ -222,6 +246,5 @@ export default async function blindSearch(instance) {
 		i++;
 	}
 
-	instance.emit('end', { module: 'blindsearch', feeds });
-	return feeds;
+	return { feeds, rssFound, atomFound };
 }
