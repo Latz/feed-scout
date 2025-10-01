@@ -422,28 +422,78 @@ async function handleDeepSearch(feedFinder, options, totalFeeds, foundFeeds) {
 	const { deepsearch } = options;
 	
 	if (deepsearch) {
-		if (options.maxFeeds <= 0 || totalFeeds.length < options.maxFeeds) {
-			const deepFeeds = await feedFinder.deepSearch();
-			if (deepFeeds && deepFeeds.length > 0) {
-				totalFeeds = totalFeeds.concat(deepFeeds);
-				// Again check if we've exceeded maxFeeds
-				if (options.maxFeeds > 0 && totalFeeds.length > options.maxFeeds) {
-					totalFeeds = totalFeeds.slice(0, options.maxFeeds);
-				}
-			}
-		}
+		await handleDeepSearchExecution(feedFinder, options, totalFeeds);
+	} else {
+		handleNoDeepSearch(totalFeeds, foundFeeds);
+	}
+}
+
+/**
+ * Executes deep search with maxFeeds handling
+ * @param {FeedScout} feedFinder - The FeedScout instance
+ * @param {object} options - Search options
+ * @returns {Promise<Array>} Deep search results
+ */
+async function executeDeepSearch(feedFinder, options) {
+	const deepFeeds = await feedFinder.deepSearch();
+	return deepFeeds || [];
+}
+
+/**
+ * Applies maxFeeds limit to combined feeds
+ * @param {Array} totalFeeds - Accumulated feeds
+ * @param {Array} deepFeeds - New deep search feeds
+ * @param {object} options - Search options
+ * @returns {Array} Combined feeds with maxFeeds limit applied
+ */
+function applyMaxFeedsLimit(totalFeeds, deepFeeds, options) {
+	let combinedFeeds = totalFeeds.concat(deepFeeds);
+	
+	// Check if we've exceeded maxFeeds
+	if (options.maxFeeds > 0 && combinedFeeds.length > options.maxFeeds) {
+		combinedFeeds = combinedFeeds.slice(0, options.maxFeeds);
+	}
+	
+	return combinedFeeds;
+}
+
+/**
+ * Handles case when deep search should be executed
+ * @param {FeedScout} feedFinder - The FeedScout instance
+ * @param {object} options - Search options
+ * @param {Array} totalFeeds - Accumulated feeds from previous searches
+ * @returns {Promise<void>}
+ */
+async function handleDeepSearchExecution(feedFinder, options, totalFeeds) {
+	// Check if we should proceed with deep search based on maxFeeds
+	if (options.maxFeeds <= 0 || totalFeeds.length < options.maxFeeds) {
+		const deepFeeds = await executeDeepSearch(feedFinder, options);
 		
-		// If maxFeeds was reached in earlier strategies, return accumulated results
+		if (deepFeeds.length > 0) {
+			const updatedFeeds = applyMaxFeedsLimit(totalFeeds, deepFeeds, options);
+			end({ feeds: updatedFeeds, module: 'all' });
+			return;
+		}
+	}
+	
+	// If no new feeds were found or maxFeeds already reached
+	end({ feeds: totalFeeds, module: 'all' });
+}
+
+/**
+ * Handles case when no deep search is needed
+ * @param {Array} totalFeeds - Accumulated feeds from previous searches
+ * @param {boolean} foundFeeds - Whether feeds were found in previous searches
+ * @returns {void}
+ */
+function handleNoDeepSearch(totalFeeds, foundFeeds) {
+	// If we collected any feeds during the non-deepsearch phases, return them
+	if (totalFeeds.length > 0) {
 		end({ feeds: totalFeeds, module: 'all' });
 	} else {
-		// If we collected any feeds during the non-deepsearch phases, return them
-		if (totalFeeds.length > 0) {
-			end({ feeds: totalFeeds, module: 'all' });
-		} else {
-			// If we're at the end of all searches and no feeds were found, show suggestion
-			if (!foundFeeds) {
-				showDeepSearchSuggestionIfNeeded();
-			}
+		// If we're at the end of all searches and no feeds were found, show suggestion
+		if (!foundFeeds) {
+			showDeepSearchSuggestionIfNeeded();
 		}
 	}
 }
