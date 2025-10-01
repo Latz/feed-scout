@@ -3,7 +3,6 @@ import checkFeed from './checkFeed.js';
 import { parseHTML } from 'linkedom';
 import validateUrl from 'isurl-module';
 import tldts from 'tldts';
-import EventEmitter from './eventEmitter.js';
 
 class ConcurrentFetcher {
 	/**
@@ -29,7 +28,7 @@ class ConcurrentFetcher {
 		}
 
 		this.active++;
-		
+
 		try {
 			const response = await fetchWithTimeout(url, this.timeout);
 			if (!response) {
@@ -124,21 +123,16 @@ async function processSingleUrl(url, baseUrl, siteDomain, fetcher, instance) {
  * @param {Array<string>} urls - The URLs to process
  * @param {string} siteDomain - The domain of the site being crawled
  * @param {number} currentDepth - The current depth of the crawling process
- * @param {object} options - Options for the crawling process (optional)
  * @param {object} instance - The FeedScout instance for emitting events
+ * @param {object} options - Options for the crawling process (optional)
  * @returns {Promise<object>} A promise that resolves to an object containing links and feeds found
  */
-async function getAllLinks(urls, siteDomain, currentDepth, options = {}, instance) {
-	const fetcher = new ConcurrentFetcher(
-		options.maxConcurrent || 5,
-		options.timeout || 5000
-	);
+async function getAllLinks(urls, siteDomain, currentDepth, instance, options = {}) {
+	const fetcher = new ConcurrentFetcher(options.maxConcurrent || 5, options.timeout || 5000);
 
 	console.log(`Depth ${currentDepth}: Processing ${urls.length} URLs`);
 
-	const results = await Promise.allSettled(
-		urls.map(url => processSingleUrl(url, url, siteDomain, fetcher, instance))
-	);
+	const results = await Promise.allSettled(urls.map(url => processSingleUrl(url, url, siteDomain, fetcher, instance)));
 
 	const allLinks = new Set();
 	const allFeeds = [];
@@ -177,13 +171,7 @@ export default async function deepSearch(url, options = {}, instance) {
 	let currentUrls = [url];
 
 	while (currentDepth < maxDepth && currentUrls.length > 0) {
-		const { links, feeds } = await getAllLinks(
-			currentUrls,
-			siteDomain,
-			currentDepth,
-			options,
-			instance
-		);
+		const { links, feeds } = await getAllLinks(currentUrls, siteDomain, currentDepth, instance, options);
 
 		feeds.forEach(feed => allFeeds.add(JSON.stringify(feed)));
 		currentUrls = links;
@@ -202,10 +190,7 @@ export default async function deepSearch(url, options = {}, instance) {
 
 function isValidLink(href, siteDomain, currentUrl) {
 	return (
-		validateUrl.isUrl(href) &&
-		tldts.parse(href).domain === siteDomain &&
-		href !== currentUrl &&
-		!excludedFile(href)
+		validateUrl.isUrl(href) && tldts.parse(href).domain === siteDomain && href !== currentUrl && !excludedFile(href)
 	);
 }
 
