@@ -164,10 +164,6 @@ export default async function blindSearch(instance) {
 		totalCount: endpointUrls.length,
 	});
 
-	const feeds = [];
-	const foundUrls = new Set();
-	let rssFound = false;
-	let atomFound = false;
 	const shouldCheckAll = instance.options?.all || false;
 	const maxFeeds = instance.options?.maxFeeds || 0; // Maximum number of feeds to find (0 = no limit)
 
@@ -198,7 +194,7 @@ async function processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance) {
 		if (maxFeeds > 0 && feeds.length >= maxFeeds) {
 			instance.emit('log', {
 				module: 'blindsearch',
-				message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
+				message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`,
 			});
 			break;
 		}
@@ -225,7 +221,7 @@ async function processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance) {
 				if (maxFeeds > 0 && feeds.length >= maxFeeds) {
 					instance.emit('log', {
 						module: 'blindsearch',
-						message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
+						message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`,
 					});
 					break;
 				}
