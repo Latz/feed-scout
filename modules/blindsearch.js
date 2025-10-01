@@ -192,10 +192,7 @@ async function processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance) {
 	while (shouldContinueSearch(i, endpointUrls.length, rssFound, atomFound, shouldCheckAll)) {
 		// Check if we've reached the maximum number of feeds
 		if (maxFeeds > 0 && feeds.length >= maxFeeds) {
-			instance.emit('log', {
-				module: 'blindsearch',
-				message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`,
-			});
+			await handleMaxFeedsReached(instance, feeds, maxFeeds);
 			break;
 		}
 
@@ -206,34 +203,16 @@ async function processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance) {
 
 			// Only add feed if it hasn't been found before
 			if (feedResult && !foundUrls.has(url)) {
-				foundUrls.add(url); // Track this URL to prevent duplicates
-
-				({ rssFound, atomFound } = addFeed(feedResult, url, feeds, rssFound, atomFound));
-
-				// Emit updated feed count immediately when a feed is found
-				// This will trigger a display update with the new count
-				instance.emit('log', {
-					module: 'blindsearch',
-					foundFeedsCount: feeds.length,
-				});
-
-				// Check if we've reached the maximum number of feeds
+				await handleNewFeedFound(feedResult, url, feeds, foundUrls, instance, maxFeeds, rssFound, atomFound);
+				
+				// Check if we've reached the maximum number of feeds after adding
 				if (maxFeeds > 0 && feeds.length >= maxFeeds) {
-					instance.emit('log', {
-						module: 'blindsearch',
-						message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`,
-					});
+					await handleMaxFeedsReached(instance, feeds, maxFeeds);
 					break;
 				}
 			}
 		} catch (error) {
-			// Only show errors if the undocumented --show-errors flag is set
-			if (instance.options?.showErrors) {
-				instance.emit('error', {
-					module: 'blindsearch',
-					error: `Error fetching ${url}: ${error.message}`,
-				});
-			}
+			await handleFeedError(instance, url, error);
 		}
 
 		// Emit that a URL was checked, which will increment the counter and update the progress
@@ -243,4 +222,60 @@ async function processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance) {
 	}
 
 	return { feeds, rssFound, atomFound };
+}
+
+/**
+ * Handles the case when maximum feeds limit is reached
+ * @param {object} instance - The FeedScout instance
+ * @param {Array} feeds - Array of found feeds
+ * @param {number} maxFeeds - Maximum number of feeds allowed
+ * @returns {Promise<void>}
+ */
+async function handleMaxFeedsReached(instance, feeds, maxFeeds) {
+	instance.emit('log', {
+		module: 'blindsearch',
+		message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`,
+	});
+}
+
+/**
+ * Handles a newly found feed
+ * @param {object} feedResult - The result from checkFeed
+ * @param {string} url - The URL of the found feed
+ * @param {Array} feeds - Array to add the feed to
+ * @param {Set} foundUrls - Set of already found URLs
+ * @param {object} instance - The FeedScout instance
+ * @param {number} maxFeeds - Maximum number of feeds allowed
+ * @param {boolean} rssFound - Whether an RSS feed has already been found
+ * @param {boolean} atomFound - Whether an Atom feed has already been found
+ * @returns {Promise<object>} Updated rssFound and atomFound flags
+ */
+async function handleNewFeedFound(feedResult, url, feeds, foundUrls, instance, maxFeeds, rssFound, atomFound) {
+	foundUrls.add(url); // Track this URL to prevent duplicates
+
+	({ rssFound, atomFound } = addFeed(feedResult, url, feeds, rssFound, atomFound));
+
+	// Emit updated feed count immediately when a feed is found
+	// This will trigger a display update with the new count
+	instance.emit('log', {
+		module: 'blindsearch',
+		foundFeedsCount: feeds.length,
+	});
+}
+
+/**
+ * Handles errors that occur during feed checking
+ * @param {object} instance - The FeedScout instance
+ * @param {string} url - The URL that caused the error
+ * @param {Error} error - The error that occurred
+ * @returns {Promise<void>}
+ */
+async function handleFeedError(instance, url, error) {
+	// Only show errors if the undocumented --show-errors flag is set
+	if (instance.options?.showErrors) {
+		instance.emit('error', {
+			module: 'blindsearch',
+			error: `Error fetching ${url}: ${error.message}`,
+		});
+	}
 }
