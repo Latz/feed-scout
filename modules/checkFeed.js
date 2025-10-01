@@ -1,13 +1,18 @@
-// Function to remove CDATA tags from text
-
-// https://www.totaltypescript.com/how-to-create-an-npm-package
-
+/**
+ * Removes CDATA tags from text content
+ * @param {string} text - The text to remove CDATA tags from
+ * @returns {string} The text with CDATA tags removed
+ */
 function removeCDATA(text) {
 	const cdataRegex = /<!\[CDATA\[(.*?)\]\]>/g;
 	return text.replace(cdataRegex, '$1');
 }
 
-// Function to clean titles by removing excessive whitespace and newlines
+/**
+ * Cleans titles by removing excessive whitespace and newlines
+ * @param {string} title - The title to clean
+ * @returns {string} The cleaned title
+ */
 function cleanTitle(title) {
 	if (!title) return title;
 	// Remove leading/trailing whitespace and collapse multiple whitespace characters
@@ -35,7 +40,11 @@ export default async function checkFeed(url, content = '') {
 	return result;
 }
 
-// Helper function to extract title from RSS content
+/**
+ * Extracts title from RSS content
+ * @param {string} content - The RSS content to extract the title from
+ * @returns {string|null} The extracted and cleaned title, or null if not found
+ */
 function extractRssTitle(content) {
 	// Extract title from RSS feed (channel title, not item title)
 	const channelRegex = /<channel>([\s\S]*?)<\/channel>/i;
@@ -54,6 +63,11 @@ function extractRssTitle(content) {
 	return title;
 }
 
+/**
+ * Checks if content is an RSS feed
+ * @param {string} content - The content to check for RSS feed elements
+ * @returns {object|null} Object with type 'rss' and title if RSS feed, null otherwise
+ */
 function checkRss(content) {
 	// First check for RSS version declaration (any version)
 	// This regex accounts for other attributes that might appear before the version
@@ -72,6 +86,11 @@ function checkRss(content) {
 	return null;
 }
 
+/**
+ * Checks if content is an Atom feed
+ * @param {string} content - The content to check for Atom feed elements
+ * @returns {object|null} Object with type 'atom' and title if Atom feed, null otherwise
+ */
 function checkAtom(content) {
 	const regex = /<entry>/i;
 	if (regex.test(content)) {
@@ -84,6 +103,11 @@ function checkAtom(content) {
 	return null;
 }
 
+/**
+ * Checks if content is a JSON feed
+ * @param {string} content - The content to check for JSON feed properties
+ * @returns {object|null} Object with type 'json' and title if JSON feed, null otherwise
+ */
 function checkJson(content) {
 	try {
 		const json = JSON.parse(content);
