@@ -203,9 +203,21 @@ async function processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance) {
 
 			// Only add feed if it hasn't been found before
 			if (feedResult && !foundUrls.has(url)) {
-				await handleNewFeedFound(feedResult, url, feeds, foundUrls, instance, maxFeeds, rssFound, atomFound);
-				
-				// Check if we've reached the maximum number of feeds after adding
+				foundUrls.add(url); // Track this URL to prevent duplicates
+
+				// Add feed and update tracking flags
+				const updatedFlags = addFeed(feedResult, url, feeds, rssFound, atomFound);
+				rssFound = updatedFlags.rssFound;
+				atomFound = updatedFlags.atomFound;
+
+				// Emit updated feed count immediately when a feed is found
+				// This will trigger a display update with the new count
+				instance.emit('log', {
+					module: 'blindsearch',
+					foundFeedsCount: feeds.length,
+				});
+
+				// Check if we've reached the maximum number of feeds
 				if (maxFeeds > 0 && feeds.length >= maxFeeds) {
 					await handleMaxFeedsReached(instance, feeds, maxFeeds);
 					break;
@@ -235,31 +247,6 @@ async function handleMaxFeedsReached(instance, feeds, maxFeeds) {
 	instance.emit('log', {
 		module: 'blindsearch',
 		message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`,
-	});
-}
-
-/**
- * Handles a newly found feed
- * @param {object} feedResult - The result from checkFeed
- * @param {string} url - The URL of the found feed
- * @param {Array} feeds - Array to add the feed to
- * @param {Set} foundUrls - Set of already found URLs
- * @param {object} instance - The FeedScout instance
- * @param {number} maxFeeds - Maximum number of feeds allowed
- * @param {boolean} rssFound - Whether an RSS feed has already been found
- * @param {boolean} atomFound - Whether an Atom feed has already been found
- * @returns {Promise<object>} Updated rssFound and atomFound flags
- */
-async function handleNewFeedFound(feedResult, url, feeds, foundUrls, instance, maxFeeds, rssFound, atomFound) {
-	foundUrls.add(url); // Track this URL to prevent duplicates
-
-	({ rssFound, atomFound } = addFeed(feedResult, url, feeds, rssFound, atomFound));
-
-	// Emit updated feed count immediately when a feed is found
-	// This will trigger a display update with the new count
-	instance.emit('log', {
-		module: 'blindsearch',
-		foundFeedsCount: feeds.length,
 	});
 }
 

@@ -4,44 +4,43 @@ import { createRequire } from 'module';
 import FeedScout from './feed-scout.js';
 import banner from './modules/banner.js';
 
-
 /**
  * Displays the banner with a gradient color effect
  */
 function displayGradientBanner() {
-  const text = banner;
-  const lines = text.split('\n');
-  let coloredText = '';
-  
-  // Simple blue to red gradient
-  const startColor = { r: 0, g: 0, b: 255 }; // Blue
-  const endColor = { r: 255, g: 0, b: 0 };   // Red
-  
-  // Count non-empty lines for gradient calculation
-  const nonEmptyLines = lines.filter(line => line.trim() !== '').length;
-  let nonEmptyIndex = 0;
-  
-  lines.forEach((line) => {
-    // Preserve empty lines
-    if (line.trim() === '') {
-      coloredText += line + '\n';
-      return;
-    }
-    
-    // Calculate color ratio for this line
-    const ratio = nonEmptyLines > 1 ? nonEmptyIndex / (nonEmptyLines - 1) : 0;
-    
-    // Calculate RGB values
-    const r = Math.round(startColor.r + ratio * (endColor.r - startColor.r));
-    const g = Math.round(startColor.g + ratio * (endColor.g - startColor.g));
-    const b = Math.round(startColor.b + ratio * (endColor.b - startColor.b));
-    
-    // Apply color to the entire line
-    coloredText += chalk.rgb(r, g, b)(line) + '\n';
-    nonEmptyIndex++;
-  });
-  
-  console.log(coloredText);
+	const text = banner;
+	const lines = text.split('\n');
+	let coloredText = '';
+
+	// Simple blue to red gradient
+	const startColor = { r: 0, g: 0, b: 255 }; // Blue
+	const endColor = { r: 255, g: 0, b: 0 }; // Red
+
+	// Count non-empty lines for gradient calculation
+	const nonEmptyLines = lines.filter(line => line.trim() !== '').length;
+	let nonEmptyIndex = 0;
+
+	lines.forEach(line => {
+		// Preserve empty lines
+		if (line.trim() === '') {
+			coloredText += line + '\n';
+			return;
+		}
+
+		// Calculate color ratio for this line
+		const ratio = nonEmptyLines > 1 ? nonEmptyIndex / (nonEmptyLines - 1) : 0;
+
+		// Calculate RGB values
+		const r = Math.round(startColor.r + ratio * (endColor.r - startColor.r));
+		const g = Math.round(startColor.g + ratio * (endColor.g - startColor.g));
+		const b = Math.round(startColor.b + ratio * (endColor.b - startColor.b));
+
+		// Apply color to the entire line
+		coloredText += chalk.rgb(r, g, b)(line) + '\n';
+		nonEmptyIndex++;
+	});
+
+	console.log(coloredText);
 }
 
 displayGradientBanner();
@@ -79,7 +78,7 @@ program
 	.option('--max-links <number>', 'Maximum number of links to process during deep search', 1000)
 	.option('--timeout <seconds>', 'Timeout for fetch requests in seconds', 5)
 	.option('--keep-query-params', 'Keep query parameters from the original URL when searching')
-	.option('--check-foreign-feeds', 'Check if foreign domain URLs are feeds (but don\'t crawl them)')
+	.option('--check-foreign-feeds', "Check if foreign domain URLs are feeds (but don't crawl them)")
 	.option('--max-errors <number>', 'Stop after a certain number of errors', 5)
 	.option('--max-feeds <number>', 'Stop search after finding a certain number of feeds', 0)
 	.description('Find feeds for site')
@@ -308,7 +307,7 @@ function initializeFeedFinder(site, options) {
 	// Temporarily disable the default end handler for individual strategies when accumulating results
 	if (options.maxFeeds && options.maxFeeds > 0) {
 		// Don't use default end handler when accumulating across strategies
-		const tempEndHandler = (data) => {
+		const tempEndHandler = data => {
 			// Just store the data but don't exit yet
 			return data;
 		};
@@ -335,7 +334,7 @@ async function handleExclusiveSearch(feedFinder, options) {
 		showDeepSearchSuggestionIfNeeded();
 		return true;
 	}
-	
+
 	if (blindsearch) {
 		await feedFinder.blindSearch();
 		showDeepSearchSuggestionIfNeeded();
@@ -354,7 +353,7 @@ async function handleExclusiveSearch(feedFinder, options) {
 async function executeStandardSearch(feedFinder, options) {
 	const searchStrategies = [feedFinder.metaLinks, feedFinder.checkAllAnchors, feedFinder.blindSearch];
 	const { all } = options;
-	
+
 	let foundFeeds = false;
 	let totalFeeds = [];
 
@@ -393,7 +392,7 @@ async function executeMaxFeedsSearch(feedFinder, searchStrategies, options) {
 		if (feeds && feeds.length > 0) {
 			totalFeeds = totalFeeds.concat(feeds);
 			foundFeeds = true;
-			
+
 			// Check if we've reached the maximum number of feeds
 			if (!all && options.maxFeeds > 0 && totalFeeds.length >= options.maxFeeds) {
 				// Trim the feeds to the maxFeeds limit
@@ -420,7 +419,7 @@ async function executeMaxFeedsSearch(feedFinder, searchStrategies, options) {
  */
 async function handleDeepSearch(feedFinder, options, totalFeeds, foundFeeds) {
 	const { deepsearch } = options;
-	
+
 	if (deepsearch) {
 		await handleDeepSearchExecution(feedFinder, options, totalFeeds);
 	} else {
@@ -434,7 +433,7 @@ async function handleDeepSearch(feedFinder, options, totalFeeds, foundFeeds) {
  * @param {object} options - Search options
  * @returns {Promise<Array>} Deep search results
  */
-async function executeDeepSearch(feedFinder, options) {
+async function executeDeepSearch(feedFinder) {
 	const deepFeeds = await feedFinder.deepSearch();
 	return deepFeeds || [];
 }
@@ -448,12 +447,12 @@ async function executeDeepSearch(feedFinder, options) {
  */
 function applyMaxFeedsLimit(totalFeeds, deepFeeds, options) {
 	let combinedFeeds = totalFeeds.concat(deepFeeds);
-	
+
 	// Check if we've exceeded maxFeeds
 	if (options.maxFeeds > 0 && combinedFeeds.length > options.maxFeeds) {
 		combinedFeeds = combinedFeeds.slice(0, options.maxFeeds);
 	}
-	
+
 	return combinedFeeds;
 }
 
@@ -467,15 +466,15 @@ function applyMaxFeedsLimit(totalFeeds, deepFeeds, options) {
 async function handleDeepSearchExecution(feedFinder, options, totalFeeds) {
 	// Check if we should proceed with deep search based on maxFeeds
 	if (options.maxFeeds <= 0 || totalFeeds.length < options.maxFeeds) {
-		const deepFeeds = await executeDeepSearch(feedFinder, options);
-		
+		const deepFeeds = await executeDeepSearch(feedFinder);
+
 		if (deepFeeds.length > 0) {
 			const updatedFeeds = applyMaxFeedsLimit(totalFeeds, deepFeeds, options);
 			end({ feeds: updatedFeeds, module: 'all' });
 			return;
 		}
 	}
-	
+
 	// If no new feeds were found or maxFeeds already reached
 	end({ feeds: totalFeeds, module: 'all' });
 }
@@ -490,7 +489,6 @@ function handleNoDeepSearch(totalFeeds, foundFeeds) {
 	// If we collected any feeds during the non-deepsearch phases, return them
 	if (totalFeeds.length > 0) {
 		end({ feeds: totalFeeds, module: 'all' });
-	} else {
 		// If we're at the end of all searches and no feeds were found, show suggestion
 		if (!foundFeeds) {
 			showDeepSearchSuggestionIfNeeded();
@@ -513,7 +511,7 @@ async function getFeeds(site, options) {
 	}
 
 	const feedFinder = initializeFeedFinder(site, options);
-	
+
 	// Handle exclusive search options
 	const isExclusiveSearch = await handleExclusiveSearch(feedFinder, options);
 	if (isExclusiveSearch) {
@@ -522,7 +520,7 @@ async function getFeeds(site, options) {
 
 	// Execute standard search
 	const { foundFeeds, totalFeeds } = await executeStandardSearch(feedFinder, options);
-	
+
 	// Handle deep search if enabled
 	await handleDeepSearch(feedFinder, options, totalFeeds, foundFeeds);
 }
