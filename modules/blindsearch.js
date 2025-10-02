@@ -3,22 +3,236 @@
  * @type {string[]}
  */
 const FEED_ENDPOINTS = [
+	// Standard RSS/Atom paths
 	'&_rss=1', //ebay
 	'.rss', // e.g. Reddit
-	'/blog?format=rss', // Squarespace
-	'/?format=feed', // Joomla
-	'/index.php?format=feed', // Joomla
-	'api/rss.xml', // API endpoints
+	'rss',
+	'rss/',
+	'feed',
+	'atom',
+	'.atom',
+	'.xml',
+	'.json',
+	'syndication/',
+	'feeds',
+	'feeds/',
 	'atom.xml',
+	'rss.xml', // this seems to be to lmost often used file name
+	'rssfeed.xml',
+	'rssfeed.rdf',
+	'rss/rss.php',
+	'rss/news/rss.xml',
+	'index.rss',
+	'index.xml',
+	'index.xml',
+	'rss.xml',
+	'atom.xml',
+	'feed.xml',
+	'feed.json',
+	'feed.rss',
+	'feed.atom',
+	'index.atom',
+	'rss/index.xml',
+	'atom/index.xml',
+	
+	// Blog platform specific paths
+	'blog?format=rss', // Squarespace
+	'blog/feed',
+	'blog/rss',
+	'blog/atom',
+	'blog/feeds',
 	'blog-feed.xml', //WIX sites
+	'weblog/rss',
+	'weblog/atom',
+	
+	// WordPress specific paths
+	'?format=feed', // Joomla
+	'index.php?format=feed', // Joomla
+	'feed/rss/',
+	'feed/rss2/',
+	'feed/atom/',
+	'feed/rdf/',
+	'?feed=rss2',
+	'?feed=atom',
+	'wp-feed.php',
+	'wp-rss.php',
+	'wp-rss2.php',
+	'wp-atom.php',
+	'wp-rdf.php',
+	
+	// News sites and publications
+	'rss/news/',
+	'rss/articles/',
+	'rss/latest/',
+	'atom/news/',
+	'news/rss',
+	'news/atom',
+	'articles/feed',
+	'latest/feed',
+	'latest.rss',
+	'news.xml',
+	
+	// E-commerce and product feeds
+	'products/rss',
+	'products/atom',
+	'catalog/feed',
 	'catalog.xml', // product catalogs
+	'inventory/feed',
+	'inventory.rss', // inventory updates
+	'deals/feed',
 	'deals.xml', // deal/sale feeds
+	'specials/feed',
+	'promotions/feed',
+	'products.rss', // product feeds
+	
+	// Podcast and media feeds
+	'podcast/rss',
+	'podcast/atom',
+	'podcasts/feed',
+	'audio/feed',
+	'video/feed',
+	'media/feed',
+	'episodes/feed',
 	'episodes.rss', // episodic content
+	'shows/feed',
+	'podcast.rss', // audio content
+	'videos.rss', // video content
+	'gallery.rss', // image galleries
+	
+	// Social media and community feeds
+	'community/feed',
+	'forum/rss',
+	'forum.rss', // forum posts
+	'forum/atom',
+	'discussions/feed',
+	'comments/feed',
+	'reviews/feed',
+	
+	// Event and calendar feeds
+	'events/feed',
 	'events.rss', // calendar events
-	'extern.php?action=feed&type=atom',
+	'calendar/feed',
+	'schedule/feed',
+	'agenda/feed',
+	
+	// Job and career feeds
+	'jobs/feed',
+	'jobs.rss', // job listings
+	'careers/feed',
+	'opportunities/feed',
+	'vacancies/feed',
+	
+	// Content management systems
+	'content/feed',
+	'pages/feed',
+	'documents/feed',
+	'resources/feed',
+	
+	// Newsletter and email feeds
+	'newsletter/feed',
+	'emails/feed',
+	'mailinglist/feed',
+	'subscription/feed',
+	
+	// Custom and alternative paths
+	'newsfeed',
+	'rssfeed',
+	'atomfeed',
+	'jsonfeed',
+	
+	// API style feeds
+	'api/rss.xml', // API endpoints
+	'api/feed',
+	'api/rss',
+	'api/atom',
+	'api/v1/feed',
+	'api/v2/feed',
+	'v1/feed',
+	'v2/feed',
+	'api/mobile/feed',
+	
+	// Legacy and alternative extensions
+	'.rdf',
+	'rdf',
+	'rdf/',
+	'.opml',
+	'opml',
+	'opml/',
+	
+	// Category and tag feeds
+	'category/*/feed',
+	'tag/*/feed',
+	'topics/feed',
+	'tags/feed',
+	
+	// User and author feeds
+	'author/*/feed',
+	'user/*/feed',
+	'profile/*/feed',
+	
+	// Time-based feeds
+	'daily/feed',
+	'weekly/feed',
+	'monthly/feed',
+	'yearly/feed',
+	'archive/feed',
+	
+	// Specialized content feeds
+	'press/feed',
+	'releases/feed',
+	'announcements/feed',
+	'updates/feed',
+	'changelog/feed',
+	'revisions/feed',
+	
+	// Mobile and app feeds
+	'mobile/feed',
+	'app/feed',
+	
+	// Regional and local feeds
+	'local/feed',
+	'regional/feed',
+	'national/feed',
+	'international/feed',
+	
+	// Industry specific feeds
+	'industry/feed',
+	'sector/feed',
+	'market/feed',
+	'finance/feed',
+	'sports/feed',
+	'entertainment/feed',
+	'technology/feed',
+	'science/feed',
+	'health/feed',
+	'education/feed',
+	
+	// Aggregation and compilation feeds
+	'all/feed',
+	'everything/feed',
+	'combined/feed',
+	'aggregate/feed',
+	'compilation/feed',
+	
+	// International variations
+	'actualites/feed', // French news
+	'noticias/feed', // Spanish news
+	'nachrichten/feed', // German news
+	'novosti/feed', // Russian news
+	'nieuws/feed', // Dutch news
+	
+	// Query parameter based feeds
+	'?rss=1',
+	'?atom=1',
+	'?feed=rss',
+	'?feed=atom',
+	'?format=rss',
+	'?format=atom',
+	'?format=feed',
+	
+	// Other existing paths from original list
 	'export/rss.xml', // export directories
 	'external?type=rss2',
-	'feed',
 	'feed',
 	'feed.aspx', // ASP.NET feeds
 	'feed.cml', // Wix, Weflow
@@ -26,40 +240,23 @@ const FEED_ENDPOINTS = [
 	'feed/atom.rss',
 	'feed/atom.xml',
 	'feed/rdf',
-	'feed/rss/',
 	'feed/rss.xml',
 	'feed/rss2',
 	'feeds',
-	'forum.rss', // forum posts
-	'gallery.rss', // image galleries
+	'extern.php?action=feed&type=atom',
 	'index.php?action=.xml;type=rss',
-	'index.rss',
-	'index.xml',
-	'inventory.rss', // inventory updates
-	'jobs.rss', // job listings
-	'latest/feed',
-	'latest.rss',
-	'news.xml',
-	'podcast.rss', // audio content
 	'posts.rss',
-	'products.rss', // product feeds
 	'public/feed.xml', // public feeds
 	'rss',
 	'rss.aspx', // ASP.NET sites
 	'rss.cfm', // ColdFusion sites
 	'rss.php',
-	'rss/news/rss.xml',
-	'rss/rss.php',
-	'rssfeed.rdf',
-	'rssfeed.xml',
-	'rss.xml', // this seems to be to lmost often used file name
 	'sitenews',
 	'spip.php?page=backend',
 	'spip.php?page=backend-breve',
 	'spip.php?page=backend-sites',
 	'syndicate/rss.xml',
 	'syndication.php',
-	'videos.rss', // video content
 	'xml',
 ];
 
