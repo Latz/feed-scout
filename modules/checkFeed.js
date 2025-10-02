@@ -4,7 +4,7 @@
  * @returns {string} The text with CDATA tags removed
  */
 function removeCDATA(text) {
-	const cdataRegex = /<!\[CDATA\[(.*?)\]\]>/g;
+	const cdataRegex = new RegExp('<!\\[CDATA\\[(.*?)\\]\\]>', 'g');
 	return text.replace(cdataRegex, '$1');
 }
 
@@ -26,16 +26,22 @@ function cleanTitle(title) {
  * @returns {Promise<object|null>} An object containing the feed type and title, or null if not a feed
  */
 export default async function checkFeed(url, content = '') {
+	// Check if URL pattern indicates this is likely an oEmbed endpoint
+	if (url.includes('/wp-json/oembed/') || url.includes('/oembed')) {
+		// WordPress oEmbed endpoints are not feeds
+		return null;
+	}
+
 	// only fetch content if it's not provided by the caller
 	if (!content) {
 		const response = await fetch(url);
-		if (!response) {
-			throw new Error(`Failed to fetch ${url}`);
+		if (!response.ok) {
+			throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
 		}
 		content = await response.text();
 	}
 
-	// Rss feeds contain <item> elements, Atom feeds contain <entry> elements.
+	// Check for RSS, Atom, or JSON feeds
 	const result = checkRss(content) || checkAtom(content) || checkJson(content) || null;
 	return result;
 }
@@ -47,17 +53,17 @@ export default async function checkFeed(url, content = '') {
  */
 function extractRssTitle(content) {
 	// Extract title from RSS feed (channel title, not item title)
-	const channelRegex = /<channel>([\s\S]*?)<\/channel>/i;
+	const channelRegex = new RegExp('<channel>([\\s\\S]*?)<\\/channel>', 'i');
 	const channelMatch = channelRegex.exec(content);
 	if (channelMatch) {
 		const channelContent = channelMatch[1];
-		const titleRegex = /<title>([\s\S]*?)<\/title>/i;
+		const titleRegex = new RegExp('<title>([\\s\\S]*?)<\\/title>', 'i');
 		const titleMatch = titleRegex.exec(channelContent);
 		const title = titleMatch ? cleanTitle(removeCDATA(titleMatch[1])) : null;
 		return title;
 	}
 	// Fallback to original method if channel parsing fails
-	const titleRegex = /<title>([\s\S]*?)<\/title>/i;
+	const titleRegex = new RegExp('<title>([\\s\\S]*?)<\\/title>', 'i');
 	const match = titleRegex.exec(content);
 	const title = match ? cleanTitle(removeCDATA(match[1])) : null;
 	return title;
@@ -69,19 +75,25 @@ function extractRssTitle(content) {
  * @returns {object|null} Object with type 'rss' and title if RSS feed, null otherwise
  */
 function checkRss(content) {
-	// First check for RSS version declaration (any version)
-	// This regex accounts for other attributes that might appear before the version
-	const rssVersionRegex = /<rss[^>]*\s+version\s*=\s*["'][\d.]+["']/i;
+	// Check for RSS root element with version attribute
+	// RSS feeds must start with an <rss> tag with a version attribute
+	const rssVersionRegex = new RegExp('<rss[^>]*\\s+version\\s*=\\s*["\'][\\d.]+["\'][^>]*>', 'i');
 	if (rssVersionRegex.test(content)) {
-		const title = extractRssTitle(content);
-		return { type: 'rss', title };
-	}
-
-	// If RSS version declaration is not found, fallback to checking for <item> elements
-	const regex = /<item>/i;
-	if (regex.test(content)) {
-		const title = extractRssTitle(content);
-		return { type: 'rss', title };
+		// Ensure the root element is indeed <rss> and verify structure
+		const rssStartRegex = new RegExp('<rss[^>]*\\s+version\\s*=\\s*["\'][\\d.]+["\'][^>]*>', 'i');
+		if (rssStartRegex.test(content)) {
+			// Check if it also contains required RSS elements like <channel> and <item>
+			const hasChannel = new RegExp('<channel[^>]*>', 'i').test(content);
+			const hasItem = new RegExp('<item[^>]*>', 'i').test(content);
+			
+			// Additional check: RSS feeds should also have specific elements like description
+			const hasDescription = new RegExp('<description[^>]*>', 'i').test(content);
+			
+			if (hasChannel && hasDescription && (hasItem || new RegExp('<\\/channel>', 'i').test(content))) {
+				const title = extractRssTitle(content);
+				return { type: 'rss', title };
+			}
+		}
 	}
 	return null;
 }
@@ -92,13 +104,26 @@ function checkRss(content) {
  * @returns {object|null} Object with type 'atom' and title if Atom feed, null otherwise
  */
 function checkAtom(content) {
-	const regex = /<entry>/i;
-	if (regex.test(content)) {
-		// Extract title from Atom feed (feed title, not entry title)
-		const titleRegex = /<title>([\s\S]*?)<\/title>/i;
-		const match = titleRegex.exec(content);
-		const title = match ? cleanTitle(removeCDATA(match[1])) : null;
-		return { type: 'atom', title };
+	// Check for Atom feed root element with appropriate namespace
+	const feedStartRegex = new RegExp('<feed(?:\\s+[^>]*)?>', 'i');
+	const hasAtomNamespace = new RegExp('<feed[^>]*[^>]*xmlns[^=]*[^>]*atom', 'i').test(content) ||
+							new RegExp('<feed[^>]*[^>]*xmlns:atom', 'i').test(content) ||
+							new RegExp('<feed[^>]*[^>]*atom:', 'i').test(content);
+	
+	if (feedStartRegex.test(content) && hasAtomNamespace) {
+		// For Atom feeds, having <entry> elements is required to be a valid feed
+		const hasEntry = new RegExp('<entry[^>]*>', 'i').test(content);
+		
+		// Additional check: Atom feeds should also have a feed-level title
+		const hasTitle = new RegExp('<title[^>]*>', 'i').test(content);
+		
+		if (hasEntry && hasTitle) {
+			// Extract title from Atom feed (feed title, not entry title)
+			const titleRegex = new RegExp('<title>([\\s\\S]*?)<\\/title>', 'i');
+			const match = titleRegex.exec(content);
+			const title = match ? cleanTitle(removeCDATA(match[1])) : null;
+			return { type: 'atom', title };
+		}
 	}
 	return null;
 }
@@ -111,8 +136,28 @@ function checkAtom(content) {
 function checkJson(content) {
 	try {
 		const json = JSON.parse(content);
+		
+		// Check if this looks like an oEmbed response - these are NOT feeds
+		// oEmbed responses typically have type: 'rich', 'video', 'photo', 'link', etc.
+		// They also have version: '1.0' or '2.0' for oEmbed, not 'jsonfeed'
+		if (json.type && ['rich', 'video', 'photo', 'link'].includes(json.type) && 
+			(json.version === '1.0' || json.version === '2.0')) {
+			// This is almost certainly an oEmbed response, not a feed
+			return null;
+		}
+		
+		// Additional check for other oEmbed indicators
+		if (json.type && json.version && json.html) {
+			// Another common pattern for oEmbed responses
+			return null;
+		}
+		
 		// Check if it's a JSON feed by looking for common properties
-		if (json.version || json.items || json.feed_url) {
+		// JSON feeds should have the version property with 'jsonfeed' in the value
+		// or both 'items' array and other feed properties
+		if ((json.version && typeof json.version === 'string' && json.version.includes('jsonfeed')) || 
+			(json.items && Array.isArray(json.items)) || 
+			json.feed_url) {
 			// Extract title from JSON feed
 			const title = json.title || json.name || null;
 			return { type: 'json', title: cleanTitle(title) };

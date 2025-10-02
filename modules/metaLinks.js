@@ -10,6 +10,9 @@ function cleanTitle(title) {
   return title.replace(/\s+/g, ' ').trim();
 }
 
+// Import the checkFeed function to verify if links are actually feeds
+import checkFeed from './checkFeed.js';
+
 // Helper function to determine feed type from link element
 /**
  * Determines the feed type from a link element based on its type attribute or href
@@ -57,9 +60,9 @@ function getFeedType(link) {
 /**
  * Searches for feeds using meta links in the page (link tags in head)
  * @param {object} instance - The FeedScout instance containing document and site info
- * @returns {Array} An array of found feed objects containing url, title, and type
+ * @returns {Promise<Array>} A promise that resolves to an array of found feed objects containing url, title, and type
  */
-export default function metaLinks(instance) {
+export default async function metaLinks(instance) {
   instance.emit("start", { module: "metalinks", niceName: "Meta links" });
   let feeds = [];
   
@@ -76,27 +79,39 @@ export default function metaLinks(instance) {
   ];
   
   // Check for links with specific feed types
-  feedTypes.forEach((feedType) => {
+  for (const feedType of feedTypes) {
     instance.emit("log", { module: "metalinks", feedType });
     for (let link of instance.document.querySelectorAll(
       `link[type="application/${feedType}"]`,
     )) {
-      feeds.push({
-        url: new URL(link.href, instance.site).href, // make relative path absolute
-        title: cleanTitle(link.title),
-        type: getFeedType(link),
-      });
+      const fullHref = new URL(link.href, instance.site).href;
       
-      // Check if we've reached the maximum number of feeds
-      if (maxFeeds > 0 && feeds.length >= maxFeeds) {
-        instance.emit("log", { 
-          module: "metalinks", 
-          message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
-        });
-        return feeds;
+      // Verify that the URL is actually a feed before adding it
+      try {
+        const isActuallyAFeed = await checkFeed(fullHref);
+        if (isActuallyAFeed) {
+          feeds.push({
+            url: fullHref, // make relative path absolute
+            title: cleanTitle(link.title),
+            type: isActuallyAFeed.type, // Use the type detected by checkFeed
+            feedTitle: isActuallyAFeed.title // Include the feed's own title
+          });
+          
+          // Check if we've reached the maximum number of feeds
+          if (maxFeeds > 0 && feeds.length >= maxFeeds) {
+            instance.emit("log", { 
+              module: "metalinks", 
+              message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
+            });
+            return feeds;
+          }
+        }
+      } catch (error) {
+        // Skip this URL if there's an error checking if it's a feed
+        instance.emit("error", { module: "metalinks", error: error.message });
       }
     }
-  });
+  }
   
   // Also check for alternate links with common feed-related type attributes
   const alternateFeedLinks = instance.document.querySelectorAll('link[rel="alternate"][type*="rss"], link[rel="alternate"][type*="xml"], link[rel="alternate"][type*="atom"], link[rel="alternate"][type*="json"]');
@@ -105,19 +120,29 @@ export default function metaLinks(instance) {
     const alreadyAdded = feeds.some(feed => feed.url === fullHref);
     
     if (!alreadyAdded) {
-      feeds.push({
-        url: fullHref,
-        title: cleanTitle(link.title),
-        type: getFeedType(link),
-      });
-      
-      // Check if we've reached the maximum number of feeds
-      if (maxFeeds > 0 && feeds.length >= maxFeeds) {
-        instance.emit("log", { 
-          module: "metalinks", 
-          message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
-        });
-        return feeds;
+      // Verify that the URL is actually a feed before adding it
+      try {
+        const isActuallyAFeed = await checkFeed(fullHref);
+        if (isActuallyAFeed) {
+          feeds.push({
+            url: fullHref,
+            title: cleanTitle(link.title),
+            type: isActuallyAFeed.type, // Use the type detected by checkFeed
+            feedTitle: isActuallyAFeed.title // Include the feed's own title
+          });
+          
+          // Check if we've reached the maximum number of feeds
+          if (maxFeeds > 0 && feeds.length >= maxFeeds) {
+            instance.emit("log", { 
+              module: "metalinks", 
+              message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
+            });
+            return feeds;
+          }
+        }
+      } catch (error) {
+        // Skip this URL if there's an error checking if it's a feed
+        instance.emit("error", { module: "metalinks", error: error.message });
       }
     }
   }
@@ -136,19 +161,29 @@ export default function metaLinks(instance) {
       const alreadyAdded = feeds.some(feed => feed.url === fullHref);
       
       if (!alreadyAdded) {
-        feeds.push({
-          url: fullHref,
-          title: cleanTitle(link.title),
-          type: getFeedType(link),
-        });
-        
-        // Check if we've reached the maximum number of feeds
-        if (maxFeeds > 0 && feeds.length >= maxFeeds) {
-          instance.emit("log", { 
-            module: "metalinks", 
-            message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
-          });
-          return feeds;
+        // Verify that the URL is actually a feed before adding it
+        try {
+          const isActuallyAFeed = await checkFeed(fullHref);
+          if (isActuallyAFeed) {
+            feeds.push({
+              url: fullHref,
+              title: cleanTitle(link.title),
+              type: isActuallyAFeed.type, // Use the type detected by checkFeed
+              feedTitle: isActuallyAFeed.title // Include the feed's own title
+            });
+            
+            // Check if we've reached the maximum number of feeds
+            if (maxFeeds > 0 && feeds.length >= maxFeeds) {
+              instance.emit("log", { 
+                module: "metalinks", 
+                message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
+              });
+              return feeds;
+            }
+          }
+        } catch (error) {
+          // Skip this URL if there's an error checking if it's a feed
+          instance.emit("error", { module: "metalinks", error: error.message });
         }
       }
     }

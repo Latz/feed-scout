@@ -115,7 +115,6 @@ class Crawler extends EventEmitter {
 		this.queue.drain(() => {
 			this.emit('end', { module: 'deepSearch', feeds: this.feeds, visitedUrls: this.visitedUrls.size });
 		});
-		console.log('this.feeds', this.feeds);
 		return this.feeds;
 	}
 
@@ -188,7 +187,6 @@ class Crawler extends EventEmitter {
 
 		if (!this.isValidUrl(url)) return;
 		this.visitedUrls.add(url);
-		console.log(`[${depth}] ${url} ${this.visitedUrls.size}`);
 
 		// Fetch the URL and handle errors properly
 		const response = await fetchWithTimeout(url, this.timeout); // Uses configurable timeout
@@ -278,17 +276,12 @@ class Crawler extends EventEmitter {
 				
 				if (shouldCheckFeed) {
 					// Check if the link itself is a feed
-					const feedResult = await checkFeed(absoluteUrl);
+					const feedResult = await checkFeed(absoluteUrl, html);
 					if (feedResult) {
 						// Check if we already found this feed to avoid duplicates
 						const alreadyFound = this.feeds.some(feed => feed.url === absoluteUrl);
 						if (!alreadyFound) {
 							this.feeds.push({
-								url: absoluteUrl,
-								type: feedResult.type,
-								title: feedResult.title,
-							});
-							console.log('Found new feed:', {
 								url: absoluteUrl,
 								type: feedResult.type,
 								title: feedResult.title,
@@ -397,6 +390,5 @@ export default async function deepSearch(url, options = {}, instance = null) {
 			resolve();
 		});
 	});
-	console.log('🚀 ~ deepSearch ~ feeds:', crawler.feeds);
 	return crawler.feeds;
 }
