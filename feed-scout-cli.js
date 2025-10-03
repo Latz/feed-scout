@@ -73,6 +73,7 @@ program
 	.argument('[site]', 'The website URL to search for feeds')
 	.option('-m, --metasearch', 'Meta search only')
 	.option('-b, --blindsearch', 'Blind search only')
+	.option('-a, --anchorsonly', 'Anchors search only')
 	.option('-d, --deepsearch', 'Enable deep search')
 	.option('--depth <number>', 'Depth of deep search', 3)
 	.option('--max-links <number>', 'Maximum number of links to process during deep search', 1000)
@@ -112,6 +113,8 @@ function log(data) {
 		handleDeepSearchLog(data);
 	} else if (data.module === 'blindsearch') {
 		handleBlindSearchLog(data);
+	} else if (data.module === 'anchors') {
+		handleAnchorsLog(data);
 	} else {
 		// For other modules, show progress dots
 		process.stdout.write('.');
@@ -151,7 +154,8 @@ function handleDeepSearchLog(data) {
  * Handle logging for blind search module
  * @param {object} data - The data object containing information about the current event or progress.
  */
-function handleBlindSearchLog(data) {
+/**\n * Handle logging for blind search and anchor modules\n * @param {object} data - The data object containing information about the current event or progress.\n * @param {string} moduleName - The name of the module for display purposes.\n */
+function handleProgressLog(data, moduleName) {
 	// Handle totalCount parameter
 	if (data.totalCount) {
 		unvisitedCount = data.totalCount;
@@ -160,7 +164,7 @@ function handleBlindSearchLog(data) {
 	}
 
 	// Update counters
-	if (data.url) {
+	if (data.url || data.anchor || data.link) {
 		visitedCount++;
 	}
 
@@ -184,9 +188,22 @@ function handleBlindSearchLog(data) {
 	const etaRemainingSeconds = etaSeconds % 60;
 	const etaFormatted = `${etaMinutes}m ${etaRemainingSeconds}s remaining`;
 
-	// Create new display showing "Started Blindsearch (visited urls/total urls) ETA"
-	const displayText = `Started Blindsearch (${visitedCount}/${unvisitedCount}) ${etaFormatted}`;
+	// Create new display showing "Started moduleName (visited urls/total urls) ETA"
+	const displayText = `Started ${moduleName} (${visitedCount}/${unvisitedCount}) ${etaFormatted}`;
 	process.stdout.write(displayText);
+}
+
+/**\n * Handle logging for blind search module\n * @param {object} data - The data object containing information about the current event or progress.\n */
+function handleBlindSearchLog(data) {
+	handleProgressLog(data, 'Blind search');
+}
+
+/**
+ * Handle logging for anchors module
+ * @param {object} data - The data object containing information about the current event or progress.
+ */
+function handleAnchorsLog(data) {
+	handleProgressLog(data, 'Check all anchors');
 }
 
 /**
@@ -200,8 +217,8 @@ function start(data) {
 	progressLineActive = false;
 	blindsearchStartTime = 0;
 
-	// Hide cursor for blindsearch
-	if (data.niceName === 'Blind search') {
+	// Hide cursor for blindsearch and anchors
+	if (data.niceName === 'Blind search' || data.niceName === 'Check all anchors') {
 		process.stdout.write('\x1B[?25l'); // Hide cursor
 	}
 
@@ -219,19 +236,34 @@ function end(data) {
 		progressLineActive = false;
 	}
 
-	// Show cursor again after blindsearch
-	if (data.module === 'blindsearch') {
+	// Show cursor again after blindsearch and anchors
+	if (data.module === 'blindsearch' || data.module === 'anchors' || data.module === 'checkAllAnchors') {
 		process.stdout.write('\x1B[?25h'); // Show cursor
+	}
+
+	// Determine the module name for the finished message
+	let moduleName = '';
+	if (data.module === 'blindsearch') {
+		moduleName = 'Blind search';
+	} else if (data.module === 'anchors' || data.module === 'checkAllAnchors') {
+		moduleName = 'Check all anchors';
+	} else if (data.module === 'deepSearch') {
+		moduleName = 'Deep search';
+	} else {
+		moduleName = 'Search';
 	}
 
 	// Handle case when no feeds are found
 	if (data.feeds.length === 0) {
-		process.stdout.write(chalk.red(`No feeds found\n`));
-
+		process.stdout.write(chalk.yellow(`Finished ${moduleName}`));
+		process.stdout.write(chalk.red(` No feeds found`));
+		
 		// Show additional info for deep search
 		if (data.module === 'deepSearch') {
-			process.stdout.write(`visited ${data.visitedUrls} pages\n`);
+			process.stdout.write(` visited ${data.visitedUrls} pages`);
 		}
+		// Add newline at the very end
+		process.stdout.write(`\n`);
 
 		return;
 	}
@@ -239,12 +271,15 @@ function end(data) {
 	// Handle case when feeds are found
 	const feedCount = data.feeds.length;
 	const feedWord = feedCount === 1 ? 'feed' : 'feeds';
-	process.stdout.write(chalk.green(`${feedCount} ${feedWord} found\n`));
-
+	process.stdout.write(chalk.green(`Finished ${moduleName}`));
+	process.stdout.write(chalk.green(` ${feedCount} ${feedWord} found`));
+	
 	// Show additional info for deep search
 	if (data.module === 'deepSearch') {
-		process.stdout.write(`visited ${data.visitedUrls} pages\n`);
+		process.stdout.write(` visited ${data.visitedUrls} pages`);
 	}
+	// Add newline before JSON output
+	process.stdout.write(`\n`);
 
 	// Output the feeds in a formatted JSON
 	process.stdout.write(`${JSON.stringify(data.feeds, null, 2)}\n`);
@@ -257,8 +292,8 @@ function end(data) {
  * @param {object} data - The error data object containing module and error information
  */
 function error(data) {
-	// Show cursor if hidden due to blindsearch
-	if (data.module === 'blindsearch') {
+	// Show cursor if hidden due to blindsearch and anchors
+	if (data.module === 'blindsearch' || data.module === 'anchors' || data.module === 'checkAllAnchors') {
 		process.stdout.write('\x1B?25h'); // Show cursor
 	}
 
@@ -327,7 +362,7 @@ function initializeFeedFinder(site, options) {
  * @returns {Promise<boolean>} True if an exclusive search was performed, false otherwise
  */
 async function handleExclusiveSearch(feedFinder, options) {
-	const { metasearch, blindsearch } = options;
+	const { metasearch, blindsearch, anchorsonly } = options;
 
 	if (metasearch) {
 		await feedFinder.metaLinks();
@@ -337,6 +372,12 @@ async function handleExclusiveSearch(feedFinder, options) {
 
 	if (blindsearch) {
 		await feedFinder.blindSearch();
+		showDeepSearchSuggestionIfNeeded();
+		return true;
+	}
+
+	if (anchorsonly) {
+		await feedFinder.checkAllAnchors();
 		showDeepSearchSuggestionIfNeeded();
 		return true;
 	}
@@ -351,8 +392,15 @@ async function handleExclusiveSearch(feedFinder, options) {
  * @returns {Promise<object>} Result with found feeds and status
  */
 async function executeStandardSearch(feedFinder, options) {
-	const searchStrategies = [feedFinder.metaLinks, feedFinder.checkAllAnchors, feedFinder.blindSearch];
-	const { all } = options;
+	const { all, anchorsonly } = options;
+	
+	// If anchorsonly is specified, only use the checkAllAnchors strategy
+	let searchStrategies;
+	if (anchorsonly) {
+		searchStrategies = [feedFinder.checkAllAnchors];
+	} else {
+		searchStrategies = [feedFinder.metaLinks, feedFinder.checkAllAnchors, feedFinder.blindSearch];
+	}
 
 	let foundFeeds = false;
 	let totalFeeds = [];
@@ -383,11 +431,20 @@ async function executeStandardSearch(feedFinder, options) {
  * @returns {Promise<object>} Result with found feeds and status
  */
 async function executeMaxFeedsSearch(feedFinder, searchStrategies, options) {
-	const { all } = options;
+	const { all, anchorsonly } = options;
+
+	// If anchorsonly is specified, only use the checkAllAnchors strategy
+	let effectiveStrategies;
+	if (anchorsonly) {
+		effectiveStrategies = [feedFinder.checkAllAnchors];
+	} else {
+		effectiveStrategies = searchStrategies;
+	}
+
 	let foundFeeds = false;
 	let totalFeeds = [];
 
-	for (const strategy of searchStrategies) {
+	for (const strategy of effectiveStrategies) {
 		const feeds = await strategy.call(feedFinder);
 		if (feeds && feeds.length > 0) {
 			totalFeeds = totalFeeds.concat(feeds);
@@ -522,5 +579,11 @@ async function getFeeds(site, options) {
 	const { foundFeeds, totalFeeds } = await executeStandardSearch(feedFinder, options);
 
 	// Handle deep search if enabled
-	await handleDeepSearch(feedFinder, options, totalFeeds, foundFeeds);
+	// Skip deep search if anchorsonly is specified
+	if (!options.anchorsonly) {
+		await handleDeepSearch(feedFinder, options, totalFeeds, foundFeeds);
+	} else {
+		// If only anchor search is specified, we end after anchor search
+		end({ feeds: totalFeeds, module: 'anchors' });
+	}
 }

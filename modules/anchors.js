@@ -41,12 +41,56 @@ function isRelativePath(url) {
  * @returns {Promise<Array>} A promise that resolves to an array of found feed URLs
  */
 async function checkAnchors(instance) {
+	// Check for meta refresh redirects
+	const metaRefresh = instance.document.querySelector('meta[http-equiv="refresh"]');
+	if (metaRefresh) {
+		const content = metaRefresh.getAttribute('content');
+		if (content && content.toLowerCase().includes('url=')) {
+			// Extract redirect URL from content attribute
+			const urlMatch = content.match(/url=(.*)/i);
+			if (urlMatch && urlMatch[1]) {
+				const redirectUrl = urlMatch[1].trim();
+				const resolvedRedirectUrl = new URL(redirectUrl, instance.site).href;
+
+				// Update the instance with the new URL and re-initialize
+				instance.site = resolvedRedirectUrl;
+
+				// Fetch the redirected page content
+				const { default: fetchWithTimeout } = await import('./fetchWithTimeout.js');
+				const { parseHTML } = await import('linkedom');
+
+				try {
+					const response = await fetchWithTimeout(resolvedRedirectUrl);
+					if (response) {
+						const content = await response.text();
+						const { document } = parseHTML(content);
+						instance.document = document;
+					}
+				} catch (error) {
+					console.error('Error following meta refresh redirect:', error);
+					instance.emit('error', {
+						module: 'anchors',
+						error: `Failed to follow meta refresh redirect to ${resolvedRedirectUrl}: ${error.message}`,
+					});
+					// Continue with original document if redirect fails
+				}
+			}
+		}
+	}
+
 	const baseUrl = new URL(instance.site); // Keep full URL for proper relative URL resolution
 	let feedUrls = [];
 	const anchors = instance.document.querySelectorAll('a');
+	const totalAnchors = anchors.length;
 	const maxFeeds = instance.options?.maxFeeds || 0; // Maximum number of feeds to find (0 = no limit)
 
-	for (const anchor of anchors) {
+	// Emit log event with total count for progress tracking
+	instance.emit('log', {
+		module: 'anchors',
+		totalCount: totalAnchors,
+	});
+
+	for (const [index, anchor] of Array.from(anchors).entries()) {
 		// Check if we've reached the maximum number of feeds
 		if (maxFeeds > 0 && feedUrls.length >= maxFeeds) {
 			instance.emit('log', {
@@ -81,6 +125,12 @@ async function checkAnchors(instance) {
 			// Skip non-HTTP schemes (mailto:, javascript:, ftp:, etc.)
 			continue;
 		}
+
+		// Emit log event for each anchor processed
+		instance.emit('log', {
+			module: 'anchors',
+			anchor: urlToCheck,
+		});
 
 		// Check if the URL is likely to be a feed by testing it
 		try {
