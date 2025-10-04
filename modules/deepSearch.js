@@ -102,7 +102,14 @@ class Crawler extends EventEmitter {
 				this.errorCount++;
 
 				// Emit error event with the specified pattern when an error occurs
-				this.emit('error', { module: 'deepSearch', error: `Async error: ${err}` });
+				this.emit('error', {
+					module: 'deepSearch',
+					error: `Async error: ${err}`,
+					explanation:
+						'An error occurred in the async queue while processing a crawling task. This could be due to network issues, invalid URLs, or server problems.',
+					suggestion:
+						'Check network connectivity and ensure the target website is accessible. The crawler will continue with other URLs.',
+				});
 
 				// Circuit breaker: Kill queue when error threshold is reached
 				// This prevents the crawler from continuing to make requests to a problematic site
@@ -162,7 +169,14 @@ class Crawler extends EventEmitter {
 				this.errorCount++;
 
 				// Emit error event with the specified pattern when an error occurs
-				this.emit('error', { module: 'deepSearch', error: `Invalid URL: ${url}` });
+				this.emit('error', {
+					module: 'deepSearch',
+					error: `Invalid URL: ${url}`,
+					explanation:
+						'A URL encountered during crawling could not be parsed or validated. This may be due to malformed URL syntax or unsupported URL schemes.',
+					suggestion:
+						'This is usually caused by broken links on the website. The crawler will skip this URL and continue with others.',
+				});
 
 				// Check if we've reached the maximum error count
 				if (this.errorCount >= this.maxErrors) {
@@ -351,7 +365,14 @@ class Crawler extends EventEmitter {
 					this.errorCount++;
 
 					// Emit error event with the specified pattern when an error occurs
-					this.emit('error', { module: 'deepSearch', error: `Error checking feed ${absoluteUrl}: ${error.message}` });
+					this.emit('error', {
+						module: 'deepSearch',
+						error: `Error checking feed ${absoluteUrl}: ${error.message}`,
+						explanation:
+							'An error occurred while trying to fetch and validate a potential feed URL discovered during deep crawling. This could be due to network timeouts, server errors, or invalid feed content.',
+						suggestion:
+							'Check if the URL is accessible and returns valid content. Network issues or server problems may cause this error. The crawler will continue with other URLs.',
+					});
 					// Also emit log with error information
 					this.emit('log', {
 						module: 'deepSearch',

@@ -159,7 +159,14 @@ export default async function metaLinks(instance) {
 				}
 			} catch (error) {
 				// Skip this URL if there's an error checking if it's a feed
-				instance.emit('error', { module: 'metalinks', error: error.message });
+				instance.emit('error', {
+					module: 'metalinks',
+					error: error.message,
+					explanation:
+						'An error occurred while trying to fetch and validate a feed URL found in an alternate meta link. This could be due to network issues, server problems, or invalid feed content.',
+					suggestion:
+						'Check if the alternate link URL is accessible and returns valid feed content. The search will continue with other meta links.',
+				});
 			}
 		}
 	}
@@ -199,7 +206,14 @@ export default async function metaLinks(instance) {
 					}
 				} catch (error) {
 					// Skip this URL if there's an error checking if it's a feed
-					instance.emit('error', { module: 'metalinks', error: error.message });
+					instance.emit('error', {
+						module: 'metalinks',
+						error: error.message,
+						explanation:
+							'An error occurred while trying to fetch and validate a feed URL found in a meta link tag. This could be due to network issues, server problems, or invalid feed content.',
+						suggestion:
+							'Check if the meta link URL is accessible and returns valid feed content. The search will continue with other meta links.',
+					});
 				}
 			}
 		}

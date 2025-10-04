@@ -79,12 +79,13 @@ function isAllowedDomain(url, baseUrl) {
 	}
 
 	// Allow common feed hosting services as exceptions
+	// These services host feeds for other websites and should be considered valid external sources
 	const allowedDomains = [
+		// Google FeedBurner (most common feed hosting service)
 		'feedburner.com',
 		'feeds.feedburner.com',
 		'feedproxy.google.com',
 		'feeds2.feedburner.com',
-		// Add more feed hosting services as needed
 	];
 	return (
 		allowedDomains.includes(parsedUrl.hostname) ||
@@ -114,6 +115,10 @@ async function handleMetaRefreshRedirect(instance) {
 				instance.emit('error', {
 					module: 'anchors',
 					error: 'Meta refresh redirect URL is empty',
+					explanation:
+						'The meta refresh tag contains an empty URL parameter. This usually indicates malformed HTML or a website configuration error.',
+					suggestion:
+						'Check the website\'s HTML source for proper meta refresh syntax: <meta http-equiv="refresh" content="0;url=https://example.com">',
 				});
 				return;
 			}
@@ -123,6 +128,10 @@ async function handleMetaRefreshRedirect(instance) {
 				instance.emit('error', {
 					module: 'anchors',
 					error: `Invalid meta refresh redirect URL: ${redirectUrl}`,
+					explanation:
+						'The URL found in the meta refresh tag could not be parsed or resolved. This may be due to malformed URL syntax, unsupported protocol, or invalid characters.',
+					suggestion:
+						'Verify the URL format is correct and uses http:// or https:// protocol. Check for special characters that may need encoding.',
 				});
 				return;
 			}
@@ -132,6 +141,10 @@ async function handleMetaRefreshRedirect(instance) {
 				instance.emit('error', {
 					module: 'anchors',
 					error: `Meta refresh redirect would create infinite loop: ${resolvedRedirectUrl.href}`,
+					explanation:
+						'The meta refresh tag redirects to the same URL that is currently being processed. This would cause an infinite loop of redirects.',
+					suggestion:
+						'This is likely a website configuration error. The meta refresh should redirect to a different URL, not back to itself.',
 				});
 				return;
 			}
@@ -154,6 +167,10 @@ async function handleMetaRefreshRedirect(instance) {
 				instance.emit('error', {
 					module: 'anchors',
 					error: `Failed to follow meta refresh redirect to ${resolvedRedirectUrl.href}: ${error.message}`,
+					explanation:
+						'An error occurred while trying to fetch the redirected page. This could be due to network issues, server problems, or the target URL being inaccessible.',
+					suggestion:
+						'Check if the redirect URL is accessible in a browser. The original page will be processed instead of the redirect target.',
 				});
 				// Continue with original document if redirect fails
 			}
@@ -180,7 +197,14 @@ function getUrlFromAnchor(anchor, baseUrl, instance) {
 	if (isRelativePath(anchor.href)) {
 		const resolvedUrl = parseUrlSafely(anchor.href, baseUrl);
 		if (!resolvedUrl) {
-			instance.emit('error', { module: 'anchors', error: `Invalid relative URL: ${anchor.href}` });
+			instance.emit('error', {
+				module: 'anchors',
+				error: `Invalid relative URL: ${anchor.href}`,
+				explanation:
+					'A relative URL found in an anchor tag could not be resolved against the base URL. This may be due to malformed relative path syntax.',
+				suggestion:
+					'Check the anchor href attribute for proper relative path format (e.g., "./feed.xml", "../rss.xml", or "/feed").',
+			});
 			return null;
 		}
 		return resolvedUrl.href;
@@ -223,6 +247,10 @@ async function processAnchor(anchor, context) {
 		instance.emit('error', {
 			module: 'anchors',
 			error: `Error checking feed at ${urlToCheck}: ${error.message}`,
+			explanation:
+				'An error occurred while trying to fetch and validate a potential feed URL found in an anchor tag. This could be due to network timeouts, server errors, or invalid feed content.',
+			suggestion:
+				'Check if the URL is accessible and returns valid feed content. Network connectivity issues or server problems may cause this error.',
 		});
 	}
 }

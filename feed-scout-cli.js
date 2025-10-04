@@ -316,8 +316,8 @@ function end(data) {
 	process.exit(0);
 }
 /**
- * Handles error events and displays error messages
- * @param {object} data - The error data object containing module and error information
+ * Handles error events and displays error messages with detailed explanations
+ * @param {object} data - The error data object containing module, error, explanation, and suggestion
  */
 function error(data) {
 	// Show cursor if hidden due to blindsearch and anchors
@@ -325,12 +325,28 @@ function error(data) {
 		process.stdout.write('\x1B?25h'); // Show cursor
 	}
 
+	// Display the main error message
 	if (data.error) {
-		console.error(chalk.red(`Error: ${data.error}`));
+		console.error(chalk.red(`\n❌ Error: ${data.error}`));
+
+		// Display explanation if provided
+		if (data.explanation) {
+			console.error(chalk.yellow(`💡 Explanation: ${data.explanation}`));
+		}
+
+		// Display suggestion if provided
+		if (data.suggestion) {
+			console.error(chalk.cyan(`🔧 Suggestion: ${data.suggestion}`));
+		}
+
+		// Add spacing after error details
+		console.error('');
 	} else if (data.module) {
-		console.error(chalk.red(`Error in ${data.module}: ${data.message || 'An error occurred'}`));
+		console.error(chalk.red(`\n❌ Error in ${data.module}: ${data.message || 'An error occurred'}`));
+		console.error('');
 	} else {
-		console.error(chalk.red(`Error: ${JSON.stringify(data)}`));
+		console.error(chalk.red(`\n❌ Error: ${JSON.stringify(data)}`));
+		console.error('');
 	}
 }
 

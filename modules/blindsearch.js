@@ -504,6 +504,10 @@ async function handleFeedError(instance, url, error) {
 		instance.emit('error', {
 			module: 'blindsearch',
 			error: `Error fetching ${url}: ${error.message}`,
+			explanation:
+				'An error occurred while trying to fetch a potential feed URL during blind search. This could be due to network timeouts, server errors, 404 not found, or invalid content.',
+			suggestion:
+				'This is normal during blind search as many URLs are tested. The search will continue with other potential feed endpoints.',
 		});
 	}
 }
