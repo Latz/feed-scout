@@ -231,6 +231,12 @@ const FEED_ENDPOINTS = [
 	'?format=rss',
 	'?format=atom',
 	'?format=feed',
+	'?type=rss',
+	'?type=atom',
+	'?output=rss',
+	'?output=atom',
+	'?view=rss',
+	'?view=feed',
 
 	// Other existing paths from original list
 	'export/rss.xml', // export directories
@@ -260,6 +266,95 @@ const FEED_ENDPOINTS = [
 	'syndicate/rss.xml',
 	'syndication.php',
 	'xml',
+
+	// Additional modern feed endpoints
+	'feed.php', // PHP-generated feeds
+	'feed.jsp', // Java Server Pages feeds
+	'feed.py', // Python feeds
+	'feed.rb', // Ruby feeds
+	'feed.pl', // Perl feeds
+	'feeds.php', // PHP feeds directory
+	'feeds.xml', // XML feeds directory
+	'feeds.json', // JSON feeds directory
+
+	// Static site generators
+	'_site/feed.xml', // Jekyll default
+	'public/feed.xml', // Hugo/Gatsby
+	'dist/feed.xml', // Build output
+	'out/feed.xml', // Next.js output
+	'build/feed.xml', // React build
+
+	// Headless CMS feeds
+	'api/feed.xml', // Headless CMS
+	'cms/feed', // CMS endpoints
+	'strapi/feed', // Strapi CMS
+	'contentful/feed', // Contentful
+	'sanity/feed', // Sanity CMS
+
+	// Documentation feeds
+	'docs/feed', // Documentation feeds
+	'documentation/feed',
+	'help/feed',
+	'support/feed',
+	'kb/feed', // Knowledge base
+	'wiki/feed', // Wiki feeds
+
+	// Repository and code feeds
+	'commits/feed', // Git commits
+	'releases/feed', // Software releases
+	'tags/feed', // Git tags
+	'branches/feed', // Git branches
+	'issues/feed', // Issue tracker
+	'pull-requests/feed', // PR feeds
+
+	// Analytics and tracking feeds
+	'stats/feed', // Statistics feeds
+	'metrics/feed', // Metrics feeds
+	'analytics/feed', // Analytics data
+	'reports/feed', // Report feeds
+
+	// Multi-language feeds
+	'en/feed', // English
+	'es/feed', // Spanish
+	'fr/feed', // French
+	'de/feed', // German
+	'it/feed', // Italian
+	'pt/feed', // Portuguese
+	'ru/feed', // Russian
+	'ja/feed', // Japanese
+	'ko/feed', // Korean
+	'zh/feed', // Chinese
+
+	// Additional file extensions
+	'feed.txt', // Plain text feeds
+	'feed.csv', // CSV feeds
+	'feed.yaml', // YAML feeds
+	'feed.yml', // YAML feeds (alternative)
+
+	// Specialized platforms
+	'shopify/feed', // Shopify stores
+	'magento/feed', // Magento stores
+	'woocommerce/feed', // WooCommerce
+	'prestashop/feed', // PrestaShop
+	'opencart/feed', // OpenCart
+	'drupal/feed', // Drupal CMS
+	'joomla/feed', // Joomla CMS
+	'typo3/feed', // TYPO3 CMS
+
+	// Social and community platforms
+	'discourse/feed', // Discourse forums
+	'phpbb/feed', // phpBB forums
+	'vbulletin/feed', // vBulletin forums
+	'invision/feed', // Invision Community
+	'xenforo/feed', // XenForo forums
+
+	// Additional query parameters
+	'?export=rss', // Export parameters
+	'?export=atom',
+	'?download=rss',
+	'?download=atom',
+	'?syndicate=rss',
+	'?syndicate=atom',
 ];
 
 /**
