@@ -4,18 +4,31 @@
 import checkFeed from './checkFeed.js';
 
 /**
+ * Safely parses a URL and returns the parsed URL object or null if invalid
+ * @param {string} url - The URL to parse
+ * @param {string|URL} [base] - The base URL for resolving relative URLs (optional)
+ * @returns {URL|null} The parsed URL object or null if parsing fails
+ */
+function parseUrlSafely(url, base) {
+	try {
+		return new URL(url, base);
+	} catch (e) {
+		return null;
+	}
+}
+
+/**
  * Checks if a URL is a valid HTTP or HTTPS URL
  * @param {string} url - The URL to validate
  * @returns {boolean} True if the URL is valid and has HTTP or HTTPS protocol, false otherwise
  */
 function isValidHttpUrl(url) {
-	try {
-		const parsed = new URL(url);
-		return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-	} catch (e) {
+	const parsed = parseUrlSafely(url);
+	if (!parsed) {
 		// If it fails to parse, it might be a relative URL
 		return false;
 	}
+	return parsed.protocol === 'http:' || parsed.protocol === 'https:';
 }
 
 /**
@@ -25,13 +38,176 @@ function isValidHttpUrl(url) {
  */
 function isRelativePath(url) {
 	// Check if it's not an absolute URL and doesn't contain a scheme
-	try {
-		new URL(url);
+	const parsed = parseUrlSafely(url);
+	if (parsed) {
 		// If it parses successfully, it's an absolute URL
 		return false;
-	} catch (e) {
-		// If it fails to parse, check if it contains a scheme
-		return !url.includes('://');
+	}
+	// If it fails to parse, check if it contains a scheme
+	return !url.includes('://');
+}
+
+/**
+ * Checks if a URL is on the same domain as the base URL or is an allowed external domain (like feed hosting services)
+ * @param {string} url - The URL to check
+ * @param {URL} baseUrl - The base URL for comparison
+ * @returns {boolean} True if the URL is on the same domain or is an allowed external domain, false otherwise
+ */
+function isAllowedDomain(url, baseUrl) {
+	const parsedUrl = parseUrlSafely(url);
+	if (!parsedUrl) {
+		// If URL parsing fails, it's likely a relative URL which should be same-domain by definition
+		return true;
+	}
+
+	// Check if it's the same domain
+	if (parsedUrl.hostname === baseUrl.hostname) {
+		return true;
+	}
+
+	// Allow common feed hosting services as exceptions
+	const allowedDomains = [
+		'feedburner.com',
+		'feeds.feedburner.com',
+		'feedproxy.google.com',
+		'feeds2.feedburner.com',
+		// Add more feed hosting services as needed
+	];
+	return (
+		allowedDomains.includes(parsedUrl.hostname) ||
+		allowedDomains.some(domain => parsedUrl.hostname.endsWith('.' + domain))
+	);
+}
+
+/**
+ * Handles meta refresh redirects if present in the document.
+ * It will fetch the content of the new URL and update the instance's document.
+ * @param {object} instance - The FeedScout instance containing document and site info.
+ */
+async function handleMetaRefreshRedirect(instance) {
+	const content = instance.document.querySelector('meta[http-equiv="refresh"]')?.getAttribute('content');
+	if (content && content.toLowerCase().includes('url=')) {
+		// Extract redirect URL from content attribute
+		// Handle various formats: url=http://example.com, url="http://example.com", url='http://example.com'
+		const urlMatch = content.match(/url=(?:["']?)([^"';,\s]+)(?:["']?)/i);
+		if (urlMatch && urlMatch[1]) {
+			const redirectUrl = urlMatch[1].trim();
+
+			// Prevent empty URLs
+			if (!redirectUrl) {
+				instance.emit('error', {
+					module: 'anchors',
+					error: 'Meta refresh redirect URL is empty',
+				});
+				return;
+			}
+
+			const resolvedRedirectUrl = parseUrlSafely(redirectUrl, instance.site);
+			if (!resolvedRedirectUrl) {
+				instance.emit('error', {
+					module: 'anchors',
+					error: `Invalid meta refresh redirect URL: ${redirectUrl}`,
+				});
+				return;
+			}
+
+			// Prevent redirect to the same URL (infinite loop protection)
+			if (resolvedRedirectUrl.href === instance.site) {
+				instance.emit('error', {
+					module: 'anchors',
+					error: `Meta refresh redirect would create infinite loop: ${resolvedRedirectUrl.href}`,
+				});
+				return;
+			}
+
+			// Update the instance with the new URL and re-initialize
+			instance.site = resolvedRedirectUrl.href;
+
+			// Fetch the redirected page content
+			const { default: fetchWithTimeout } = await import('./fetchWithTimeout.js');
+			const { parseHTML } = await import('linkedom');
+
+			try {
+				const response = await fetchWithTimeout(resolvedRedirectUrl.href);
+				if (response) {
+					const newContent = await response.text();
+					const { document } = parseHTML(newContent);
+					instance.document = document;
+				}
+			} catch (error) {
+				instance.emit('error', {
+					module: 'anchors',
+					error: `Failed to follow meta refresh redirect to ${resolvedRedirectUrl.href}: ${error.message}`,
+				});
+				// Continue with original document if redirect fails
+			}
+		}
+	}
+}
+
+/**
+ * Resolves the URL from an anchor element.
+ * @param {HTMLAnchorElement} anchor - The anchor element.
+ * @param {URL} baseUrl - The base URL for resolving relative paths.
+ * @param {object} instance - The FeedScout instance for emitting errors.
+ * @returns {string|null} The resolved URL or null if invalid.
+ */
+function getUrlFromAnchor(anchor, baseUrl, instance) {
+	if (!anchor.href) {
+		return null;
+	}
+
+	if (isValidHttpUrl(anchor.href)) {
+		return anchor.href;
+	}
+
+	if (isRelativePath(anchor.href)) {
+		const resolvedUrl = parseUrlSafely(anchor.href, baseUrl);
+		if (!resolvedUrl) {
+			instance.emit('error', { module: 'anchors', error: `Invalid relative URL: ${anchor.href}` });
+			return null;
+		}
+		return resolvedUrl.href;
+	}
+
+	// Skips non-HTTP schemes (mailto:, javascript:, ftp:, etc.)
+	return null;
+}
+
+/**
+ * Checks a single anchor to see if it's a feed and adds it to the list if so.
+ * @param {HTMLAnchorElement} anchor - The anchor element to check.
+ * @param {object} context - The context containing instance, baseUrl, and feedUrls array.
+ * @returns {Promise<void>}
+ */
+async function processAnchor(anchor, context) {
+	const { instance, baseUrl, feedUrls } = context;
+	const urlToCheck = getUrlFromAnchor(anchor, baseUrl, instance);
+
+	if (!urlToCheck) {
+		return;
+	}
+
+	instance.emit('log', {
+		module: 'anchors',
+		anchor: urlToCheck,
+	});
+
+	try {
+		const feedResult = await checkFeed(urlToCheck);
+		if (feedResult) {
+			feedUrls.push({
+				href: urlToCheck,
+				title: anchor.textContent?.trim() || null,
+				type: feedResult.type,
+				feedTitle: feedResult.title,
+			});
+		}
+	} catch (error) {
+		instance.emit('error', {
+			module: 'anchors',
+			error: `Error checking feed at ${urlToCheck}: ${error.message}`,
+		});
 	}
 }
 
@@ -41,124 +217,50 @@ function isRelativePath(url) {
  * @returns {Promise<Array>} A promise that resolves to an array of found feed URLs
  */
 async function checkAnchors(instance) {
-	// Check for meta refresh redirects
-	const metaRefresh = instance.document.querySelector('meta[http-equiv="refresh"]');
-	if (metaRefresh) {
-		const content = metaRefresh.getAttribute('content');
-		if (content && content.toLowerCase().includes('url=')) {
-			// Extract redirect URL from content attribute
-			const urlMatch = content.match(/url=(.*)/i);
-			if (urlMatch && urlMatch[1]) {
-				const redirectUrl = urlMatch[1].trim();
-				const resolvedRedirectUrl = new URL(redirectUrl, instance.site).href;
+	await handleMetaRefreshRedirect(instance);
 
-				// Update the instance with the new URL and re-initialize
-				instance.site = resolvedRedirectUrl;
+	const baseUrl = new URL(instance.site);
 
-				// Fetch the redirected page content
-				const { default: fetchWithTimeout } = await import('./fetchWithTimeout.js');
-				const { parseHTML } = await import('linkedom');
+	// Get all anchors and filter for same-host or allowed domains in a single operation
+	const allAnchors = instance.document.querySelectorAll('a');
+	const filteredAnchors = [];
+	let totalCount = 0;
 
-				try {
-					const response = await fetchWithTimeout(resolvedRedirectUrl);
-					if (response) {
-						const content = await response.text();
-						const { document } = parseHTML(content);
-						instance.document = document;
-					}
-				} catch (error) {
-					console.error('Error following meta refresh redirect:', error);
-					instance.emit('error', {
-						module: 'anchors',
-						error: `Failed to follow meta refresh redirect to ${resolvedRedirectUrl}: ${error.message}`,
-					});
-					// Continue with original document if redirect fails
-				}
-			}
+	// Process anchors one by one to avoid creating intermediate arrays
+	for (const anchor of allAnchors) {
+		totalCount++;
+		const urlToCheck = getUrlFromAnchor(anchor, baseUrl, instance);
+		if (urlToCheck && isAllowedDomain(urlToCheck, baseUrl)) {
+			filteredAnchors.push(anchor);
 		}
 	}
 
-	const baseUrl = new URL(instance.site); // Keep full URL for proper relative URL resolution
-	let feedUrls = [];
-	const anchors = instance.document.querySelectorAll('a');
-	const totalAnchors = anchors.length;
-	const maxFeeds = instance.options?.maxFeeds || 0; // Maximum number of feeds to find (0 = no limit)
+	const maxFeeds = instance.options?.maxFeeds || 0;
+	const context = {
+		instance,
+		baseUrl,
+		feedUrls: [],
+	};
 
-	// Emit log event with total count for progress tracking
+	// Emit the count of anchors that will actually be processed
 	instance.emit('log', {
 		module: 'anchors',
-		totalCount: totalAnchors,
+		totalCount: totalCount,
+		filteredCount: filteredAnchors.length, // Number of anchors that passed the domain filter
 	});
 
-	for (const [index, anchor] of Array.from(anchors).entries()) {
-		// Check if we've reached the maximum number of feeds
-		if (maxFeeds > 0 && feedUrls.length >= maxFeeds) {
+	for (const anchor of filteredAnchors) {
+		if (maxFeeds > 0 && context.feedUrls.length >= maxFeeds) {
 			instance.emit('log', {
 				module: 'anchors',
-				message: `Stopped due to reaching maximum feeds limit: ${feedUrls.length} feeds found (max ${maxFeeds} allowed).`,
+				message: `Stopped due to reaching maximum feeds limit: ${context.feedUrls.length} feeds found (max ${maxFeeds} allowed).`,
 			});
 			break;
 		}
-
-		// Skip anchors without href
-		if (!anchor.href) continue;
-
-		let urlToCheck;
-
-		// Handle different URL types properly
-		const isAbsoluteHttp = isValidHttpUrl(anchor.href);
-		const isRelative = isRelativePath(anchor.href);
-
-		if (isAbsoluteHttp) {
-			// Absolute HTTP/HTTPS URL - use as-is
-			urlToCheck = anchor.href;
-		} else if (isRelative) {
-			// Relative path - resolve against base URL
-			try {
-				urlToCheck = new URL(anchor.href, baseUrl).href;
-			} catch (error) {
-				// Skip invalid relative URLs
-				instance.emit('error', { module: 'anchors', error: `Invalid relative URL: ${anchor.href}` });
-				continue;
-			}
-		} else {
-			// Skip non-HTTP schemes (mailto:, javascript:, ftp:, etc.)
-			continue;
-		}
-
-		// Emit log event for each anchor processed
-		instance.emit('log', {
-			module: 'anchors',
-			anchor: urlToCheck,
-		});
-
-		// Check if the URL is likely to be a feed by testing it
-		try {
-			const feedResult = await checkFeed(urlToCheck);
-			if (feedResult) {
-				feedUrls.push({
-					href: urlToCheck,
-					title: anchor.textContent?.trim() || null,
-					type: feedResult.type,
-					feedTitle: feedResult.title,
-				});
-
-				// Check if we've reached the maximum number of feeds after adding
-				if (maxFeeds > 0 && feedUrls.length >= maxFeeds) {
-					instance.emit('log', {
-						module: 'anchors',
-						message: `Stopped due to reaching maximum feeds limit: ${feedUrls.length} feeds found (max ${maxFeeds} allowed).`,
-					});
-					break;
-				}
-			}
-		} catch (error) {
-			// Emit error event when checking if the URL is a feed fails
-			instance.emit('error', { module: 'anchors', error: error.message });
-		}
+		await processAnchor(anchor, context);
 	}
 
-	return feedUrls;
+	return context.feedUrls;
 }
 
 /**
