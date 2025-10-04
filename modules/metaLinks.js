@@ -1,0 +1,194 @@
+// Helper function to clean titles by removing excessive whitespace and newlines
+/**
+ * Cleans titles by removing excessive whitespace and newlines
+ * @param {string} title - The title to clean
+ * @returns {string} The cleaned title
+ */
+function cleanTitle(title) {
+  if (!title) return title;
+  // Remove leading/trailing whitespace and collapse multiple whitespace characters
+  return title.replace(/\s+/g, ' ').trim();
+}
+
+// Import the checkFeed function to verify if links are actually feeds
+import checkFeed from './checkFeed.js';
+
+// Helper function to determine feed type from link element
+/**
+ * Determines the feed type from a link element based on its type attribute or href
+ * @param {object} link - The link element to determine the feed type from
+ * @returns {string} The determined feed type ('rss', 'atom', or 'json'), defaults to 'rss'
+ */
+function getFeedType(link) {
+  // Extract type from type attribute if present
+  if (link.type) {
+    const typeMatch = link.type.match(/(rss|atom|json)/);
+    if (typeMatch) {
+      return typeMatch[1];
+    }
+    
+    // Handle other common feed types
+    if (link.type.includes('rss') || link.type.includes('xml')) {
+      return 'rss';
+    }
+    if (link.type.includes('atom')) {
+      return 'atom';
+    }
+    if (link.type.includes('json')) {
+      return 'json';
+    }
+  }
+  
+  // Fallback: try to determine type from href extension
+  if (link.href) {
+    const href = link.href.toLowerCase();
+    if (href.includes('.rss') || href.includes('.xml')) {
+      return 'rss';
+    }
+    if (href.includes('.atom')) {
+      return 'atom';
+    }
+    if (href.includes('.json')) {
+      return 'json';
+    }
+  }
+  
+  // Default to rss if we can't determine the type
+  return 'rss';
+}
+
+/**
+ * Searches for feeds using meta links in the page (link tags in head)
+ * @param {object} instance - The FeedScout instance containing document and site info
+ * @returns {Promise<Array>} A promise that resolves to an array of found feed objects containing url, title, and type
+ */
+export default async function metaLinks(instance) {
+  instance.emit("start", { module: "metalinks", niceName: "Meta links" });
+  let feeds = [];
+  
+  // Get maxFeeds from options, default to 0 (no limit)
+  const maxFeeds = instance.options?.maxFeeds || 0;
+  
+  // Expanded list of feed types to check
+  const feedTypes = [
+    "feed+json",
+    "rss+xml",
+    "atom+xml",
+    "xml",
+    "rdf+xml"
+  ];
+  
+  // Check for links with specific feed types
+  for (const feedType of feedTypes) {
+    instance.emit("log", { module: "metalinks", feedType });
+    for (let link of instance.document.querySelectorAll(
+      `link[type="application/${feedType}"]`,
+    )) {
+      const fullHref = new URL(link.href, instance.site).href;
+      
+      // Verify that the URL is actually a feed before adding it
+      try {
+        const isActuallyAFeed = await checkFeed(fullHref);
+        if (isActuallyAFeed) {
+          feeds.push({
+            url: fullHref, // make relative path absolute
+            title: cleanTitle(link.title),
+            type: isActuallyAFeed.type, // Use the type detected by checkFeed
+            feedTitle: isActuallyAFeed.title // Include the feed's own title
+          });
+          
+          // Check if we've reached the maximum number of feeds
+          if (maxFeeds > 0 && feeds.length >= maxFeeds) {
+            instance.emit("log", { 
+              module: "metalinks", 
+              message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
+            });
+            return feeds;
+          }
+        }
+      } catch (error) {
+        // Skip this URL if there's an error checking if it's a feed
+        instance.emit("error", { module: "metalinks", error: error.message });
+      }
+    }
+  }
+  
+  // Also check for alternate links with common feed-related type attributes
+  const alternateFeedLinks = instance.document.querySelectorAll('link[rel="alternate"][type*="rss"], link[rel="alternate"][type*="xml"], link[rel="alternate"][type*="atom"], link[rel="alternate"][type*="json"]');
+  for (let link of alternateFeedLinks) {
+    const fullHref = new URL(link.href, instance.site).href;
+    const alreadyAdded = feeds.some(feed => feed.url === fullHref);
+    
+    if (!alreadyAdded) {
+      // Verify that the URL is actually a feed before adding it
+      try {
+        const isActuallyAFeed = await checkFeed(fullHref);
+        if (isActuallyAFeed) {
+          feeds.push({
+            url: fullHref,
+            title: cleanTitle(link.title),
+            type: isActuallyAFeed.type, // Use the type detected by checkFeed
+            feedTitle: isActuallyAFeed.title // Include the feed's own title
+          });
+          
+          // Check if we've reached the maximum number of feeds
+          if (maxFeeds > 0 && feeds.length >= maxFeeds) {
+            instance.emit("log", { 
+              module: "metalinks", 
+              message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
+            });
+            return feeds;
+          }
+        }
+      } catch (error) {
+        // Skip this URL if there's an error checking if it's a feed
+        instance.emit("error", { module: "metalinks", error: error.message });
+      }
+    }
+  }
+  
+  // Also check for alternate links that might be feeds based on href patterns
+  const alternateLinks = instance.document.querySelectorAll('link[rel="alternate"]');
+  for (let link of alternateLinks) {
+    // Check if href contains common feed patterns
+    const feedPatterns = ['/rss', '/feed', '/atom', '.rss', '.atom', '.xml', '.json'];
+    const isLikelyFeed = link.href && feedPatterns.some(pattern => 
+      link.href.toLowerCase().includes(pattern));
+    
+    // If it's likely a feed and we haven't already added it
+    if (isLikelyFeed) {
+      const fullHref = new URL(link.href, instance.site).href;
+      const alreadyAdded = feeds.some(feed => feed.url === fullHref);
+      
+      if (!alreadyAdded) {
+        // Verify that the URL is actually a feed before adding it
+        try {
+          const isActuallyAFeed = await checkFeed(fullHref);
+          if (isActuallyAFeed) {
+            feeds.push({
+              url: fullHref,
+              title: cleanTitle(link.title),
+              type: isActuallyAFeed.type, // Use the type detected by checkFeed
+              feedTitle: isActuallyAFeed.title // Include the feed's own title
+            });
+            
+            // Check if we've reached the maximum number of feeds
+            if (maxFeeds > 0 && feeds.length >= maxFeeds) {
+              instance.emit("log", { 
+                module: "metalinks", 
+                message: `Stopped due to reaching maximum feeds limit: ${feeds.length} feeds found (max ${maxFeeds} allowed).`
+              });
+              return feeds;
+            }
+          }
+        } catch (error) {
+          // Skip this URL if there's an error checking if it's a feed
+          instance.emit("error", { module: "metalinks", error: error.message });
+        }
+      }
+    }
+  }
+  
+  instance.emit("end", { module: "metalinks", feeds });
+  return feeds;
+}
