@@ -62,8 +62,7 @@ export default async function fetchWithTimeout(url, timeout = 5000) {
 		return response;
 	} catch (error) {
 		clearTimeout(timeoutId);
-		// Return null to allow the program to continue, but don't log the error here
-		// The calling function should handle logging
-		return null;
+		// Re-throw the error to allow the caller to handle it and get more details
+		throw error;
 	}
 }

@@ -287,8 +287,12 @@ function error(data) {
 	if (data.error) {
 		// If the error is the specific fetch error, stop the search
 		if (data.error.includes('Failed to fetch https://www.icelandreview.com')) {
-			console.error(chalk.red(`\n❌ Error: ${data.error}`));
-			console.error(chalk.yellow('Stopping search due to specific fetch error as requested.'));
+			console.error(chalk.red(`\n❌ ${data.error}`));
+			if (data.cause) {
+				console.error(chalk.yellow(`   Error Code: ${data.cause.code}`));
+				console.error(chalk.yellow(`   Details: ${data.cause.message}`));
+			}
+			console.error(chalk.yellow('Stopping search due to fetch error.'));
 			process.exit(1);
 		}
 

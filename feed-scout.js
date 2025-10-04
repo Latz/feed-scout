@@ -102,21 +102,41 @@ export default class FeedScout extends EventEmitter {
 		if (this.initPromise === null) {
 			this.initPromise = (async () => {
 				try {
-					const response = await fetchWithTimeout(this.site);
-					if (!response) {
-						this.emit('error', { module: 'FeedScout', error: `Failed to fetch ${this.site}` });
+					const response = await fetchWithTimeout(this.site, this.options.timeout * 1000);
+
+					if (!response.ok) {
+						this.emit('error', {
+							module: 'FeedScout',
+							error: `HTTP error while fetching ${this.site}: ${response.status} ${response.statusText}`,
+						});
 						this.content = '';
 						this.document = { querySelectorAll: () => [] };
 						this.emit('initialized');
 						return;
 					}
+
 					this.content = await response.text();
 					const { document } = parseHTML(this.content);
 					this.document = document;
 
 					this.emit('initialized');
 				} catch (error) {
-					this.emit('error', { module: 'FeedScout', error: `Error fetching ${this.site}: ${error.message}` });
+					let errorMessage = `Failed to fetch ${this.site}`;
+					if (error.name === 'AbortError') {
+						errorMessage += ': Request timed out';
+					} else {
+						errorMessage += `: ${error.message}`;
+						if (error.cause) {
+							errorMessage += ` (cause: ${error.cause.code || error.cause.message})`;
+						}
+					}
+
+					this.emit('error', {
+						module: 'FeedScout',
+						error: errorMessage,
+						cause: error.cause,
+					});
+
 					this.content = '';
 					this.document = { querySelectorAll: () => [] };
 					this.emit('initialized');
