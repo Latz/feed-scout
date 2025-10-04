@@ -329,14 +329,32 @@ function error(data) {
 	if (data.error) {
 		console.error(chalk.red(`\n❌ Error: ${data.error}`));
 
-		// Display explanation if provided
-		if (data.explanation) {
-			console.error(chalk.yellow(`💡 Explanation: ${data.explanation}`));
-		}
+		// Add CLI-specific explanations for common HTTP errors
+		if (data.error.includes('HTTP 403 Forbidden')) {
+			console.error(
+				chalk.yellow(
+					`💡 Explanation: The server is refusing access to the requested resource. This typically occurs when:`
+				)
+			);
+			console.error(chalk.yellow(`   • The website blocks automated requests or crawlers`));
+			console.error(chalk.yellow(`   • Rate limiting is in effect due to too many requests`));
+			console.error(chalk.yellow(`   • The server requires authentication or special headers`));
+			console.error(chalk.yellow(`   • The website has anti-bot protection (Cloudflare, etc.)`));
+			console.error(
+				chalk.cyan(
+					`🔧 Suggestion: Try accessing the URL in a browser to verify it works. Some websites block automated tools like Feed Scout to prevent scraping.`
+				)
+			);
+		} else {
+			// Display explanation if provided by modules
+			if (data.explanation) {
+				console.error(chalk.yellow(`💡 Explanation: ${data.explanation}`));
+			}
 
-		// Display suggestion if provided
-		if (data.suggestion) {
-			console.error(chalk.cyan(`🔧 Suggestion: ${data.suggestion}`));
+			// Display suggestion if provided by modules
+			if (data.suggestion) {
+				console.error(chalk.cyan(`🔧 Suggestion: ${data.suggestion}`));
+			}
 		}
 
 		// Add spacing after error details
