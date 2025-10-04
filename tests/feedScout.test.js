@@ -34,7 +34,8 @@ describe('FeedScout Main Class', () => {
 
     it('should handle URLs with protocol correctly', () => {
       const fs = new FeedScout('https://example.com');
-      assert.strictEqual(fs.site, 'https://example.com/');
+      // Root domain URLs should not have trailing slash to prevent duplicate path traversal
+      assert.strictEqual(fs.site, 'https://example.com');
     });
 
     it('should store options correctly', () => {

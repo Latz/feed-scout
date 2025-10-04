@@ -81,7 +81,10 @@ export default class FeedScout extends EventEmitter {
 		if (!site.includes('://')) {
 			site = `https://${site}`;
 		}
-		this.site = new URL(site).href; // normalize site link
+		const urlObj = new URL(site);
+		// Normalize site link but remove trailing slash for root paths to prevent duplicate checks in path traversal
+		// For example: https://example.com/ should become https://example.com to avoid checking endpoints twice
+		this.site = urlObj.pathname === '/' ? urlObj.origin : urlObj.href;
 		this.options = options;
 		this.initPromise = null; // Store the initialization promise
 	}

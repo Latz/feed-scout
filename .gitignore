@@ -28,3 +28,12 @@ dist-ssr
 /03
 /sonar-project.properties
 /qwen.MD
+
+# Blog posts and promotional content (not for version control)
+TECHNICAL_BLOG_POST.md
+/API_REFERENCE.md
+/CASUAL_TEXT.md
+/SOCIAL_MEDIA_PROMO.md
+/TECHNICAL_API_DOCUMENTATION.md
+/promo_genius.txt
+/LONG_FORM_PROMO.md
