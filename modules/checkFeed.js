@@ -1,3 +1,18 @@
+/**
+ * @fileoverview checkFeed - Feed validation and type detection utility
+ *
+ * This module provides comprehensive feed validation for RSS, Atom, and JSON feeds.
+ * It fetches feed URLs, analyzes their content structure, and extracts metadata
+ * like titles and feed types. Uses pre-compiled regex patterns for optimal performance.
+ *
+ * @module checkFeed
+ * @version 1.0.0
+ * @author latz
+ * @since 1.0.0
+ */
+
+import fetchWithTimeout from './fetchWithTimeout.js';
+
 // Pre-compiled regex patterns for all feed detection and processing (performance optimization)
 const FEED_PATTERNS = {
 	// CDATA processing
@@ -47,10 +62,25 @@ function cleanTitle(title) {
 }
 
 /**
- * Checks if a URL is a feed (RSS, Atom, or JSON) by examining its content
- * @param {string} url - The URL to check
- * @param {string} content - The content to check (optional, will fetch if not provided)
- * @returns {Promise<object|null>} An object containing the feed type and title, or null if not a feed
+ * Validates if a URL is a feed (RSS, Atom, or JSON) by analyzing its content structure
+ * Fetches content if not provided and uses pre-compiled regex patterns for efficient parsing
+ * @param {string} url - The URL to check (must be a valid HTTP/HTTPS URL)
+ * @param {string} [content=''] - The content to analyze (optional, will fetch if not provided)
+ * @returns {Promise<object|null>} Feed object with type and title properties, or null if not a valid feed
+ * @throws {Error} When network errors occur during content fetching
+ * @example
+ * // Check a URL by fetching its content
+ * const result = await checkFeed('https://example.com/feed.xml');
+ * console.log(result); // { type: 'rss', title: 'Example Blog' }
+ *
+ * // Check pre-fetched content
+ * const content = '<rss version="2.0">...</rss>';
+ * const result = await checkFeed('https://example.com/feed.xml', content);
+ * console.log(result); // { type: 'rss', title: 'Example Blog' }
+ *
+ * // Returns null for non-feed content
+ * const result = await checkFeed('https://example.com/not-a-feed');
+ * console.log(result); // null
  */
 export default async function checkFeed(url, content = '') {
 	// Check if URL pattern indicates this is likely an oEmbed endpoint

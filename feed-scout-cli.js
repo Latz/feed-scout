@@ -1,3 +1,16 @@
+/**
+ * @fileoverview Feed Scout CLI - Command-line interface for the Feed Scout feed discovery tool
+ *
+ * This module provides a comprehensive command-line interface for discovering RSS, Atom,
+ * and JSON feeds on websites. It supports multiple search strategies and provides
+ * colorful, interactive output with progress indicators.
+ *
+ * @module FeedScoutCLI
+ * @version 1.0.0
+ * @author latz
+ * @since 1.0.0
+ */
+
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { createRequire } from 'module';
@@ -5,7 +18,12 @@ import FeedScout from './feed-scout.js';
 import banner from './modules/banner.js';
 
 /**
- * Displays the banner with a gradient color effect
+ * Displays the Feed Scout banner with a gradient color effect
+ * Creates a blue-to-red gradient overlay on the existing colored banner
+ * @function displayGradientBanner
+ * @returns {void}
+ * @example
+ * displayGradientBanner(); // Shows colorful banner in terminal
  */
 function displayGradientBanner() {
 	const text = banner;
@@ -158,7 +176,12 @@ function handleDeepSearchLog(data) {
 function handleProgressLog(data, moduleName) {
 	// Handle totalCount parameter
 	if (data.totalCount) {
-		unvisitedCount = data.totalCount;
+		// For anchors module, prefer filteredCount if available
+		if (data.module === 'anchors' && data.filteredCount !== undefined) {
+			unvisitedCount = data.filteredCount;
+		} else {
+			unvisitedCount = data.totalCount;
+		}
 		blindsearchStartTime = Date.now(); // Record start time
 		return;
 	}
@@ -257,7 +280,7 @@ function end(data) {
 	if (data.feeds.length === 0) {
 		process.stdout.write(chalk.yellow(`Finished ${moduleName}`));
 		process.stdout.write(chalk.red(` No feeds found`));
-		
+
 		// Show additional info for deep search
 		if (data.module === 'deepSearch') {
 			process.stdout.write(` visited ${data.visitedUrls} pages`);
@@ -273,7 +296,7 @@ function end(data) {
 	const feedWord = feedCount === 1 ? 'feed' : 'feeds';
 	process.stdout.write(chalk.green(`Finished ${moduleName}`));
 	process.stdout.write(chalk.green(` ${feedCount} ${feedWord} found`));
-	
+
 	// Show additional info for deep search
 	if (data.module === 'deepSearch') {
 		process.stdout.write(` visited ${data.visitedUrls} pages`);
@@ -393,7 +416,7 @@ async function handleExclusiveSearch(feedFinder, options) {
  */
 async function executeStandardSearch(feedFinder, options) {
 	const { all, anchorsonly } = options;
-	
+
 	// If anchorsonly is specified, only use the checkAllAnchors strategy
 	let searchStrategies;
 	if (anchorsonly) {

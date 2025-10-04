@@ -275,8 +275,8 @@ class Crawler extends EventEmitter {
 				const shouldCheckFeed = this.isValidUrl(absoluteUrl) || this.checkForeignFeeds;
 				
 				if (shouldCheckFeed) {
-					// Check if the link itself is a feed
-					const feedResult = await checkFeed(absoluteUrl, html);
+					// Check if the link itself is a feed (fetches the URL content to check)
+					const feedResult = await checkFeed(absoluteUrl);
 					if (feedResult) {
 						// Check if we already found this feed to avoid duplicates
 						const alreadyFound = this.feeds.some(feed => feed.url === absoluteUrl);
