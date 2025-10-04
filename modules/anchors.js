@@ -98,84 +98,25 @@ function isAllowedDomain(url, baseUrl) {
  * It will fetch the content of the new URL and update the instance's document.
  * @param {object} instance - The FeedScout instance containing document and site info.
  */
-async function handleMetaRefreshRedirect(instance) {
-	const content = instance.document.querySelector('meta[http-equiv="refresh"]')?.getAttribute('content');
-	if (content && content.toLowerCase().includes('url=')) {
-		// Extract redirect URL from content attribute using improved regex
-		// Meta refresh format: "delay;url=target_url" where delay is in seconds
-		// Handle various formats: url=http://example.com, url="http://example.com", url='http://example.com'
-		// The regex uses non-capturing group (?:["']?) for optional quotes and captures the URL
-		// Character class [^"';,\s]+ matches URL characters but stops at quotes, semicolons, commas, or whitespace
-		const urlMatch = content.match(/url=(?:["']?)([^"';,\s]+)(?:["']?)/i);
-		if (urlMatch && urlMatch[1]) {
-			const redirectUrl = urlMatch[1].trim();
-
-			// Prevent empty URLs
-			if (!redirectUrl) {
-				instance.emit('error', {
-					module: 'anchors',
-					error: 'Meta refresh redirect URL is empty',
-					explanation:
-						'The meta refresh tag contains an empty URL parameter. This usually indicates malformed HTML or a website configuration error.',
-					suggestion:
-						'Check the website\'s HTML source for proper meta refresh syntax: <meta http-equiv="refresh" content="0;url=https://example.com">',
-				});
-				return;
-			}
-
-			const resolvedRedirectUrl = parseUrlSafely(redirectUrl, instance.site);
-			if (!resolvedRedirectUrl) {
-				instance.emit('error', {
-					module: 'anchors',
-					error: `Invalid meta refresh redirect URL: ${redirectUrl}`,
-					explanation:
-						'The URL found in the meta refresh tag could not be parsed or resolved. This may be due to malformed URL syntax, unsupported protocol, or invalid characters.',
-					suggestion:
-						'Verify the URL format is correct and uses http:// or https:// protocol. Check for special characters that may need encoding.',
-				});
-				return;
-			}
-
-			// Prevent redirect to the same URL (infinite loop protection)
-			if (resolvedRedirectUrl.href === instance.site) {
-				instance.emit('error', {
-					module: 'anchors',
-					error: `Meta refresh redirect would create infinite loop: ${resolvedRedirectUrl.href}`,
-					explanation:
-						'The meta refresh tag redirects to the same URL that is currently being processed. This would cause an infinite loop of redirects.',
-					suggestion:
-						'This is likely a website configuration error. The meta refresh should redirect to a different URL, not back to itself.',
-				});
-				return;
-			}
-
-			// Update the instance with the new URL and re-initialize
-			instance.site = resolvedRedirectUrl.href;
-
-			// Fetch the redirected page content
-			const { default: fetchWithTimeout } = await import('./fetchWithTimeout.js');
-			const { parseHTML } = await import('linkedom');
-
-			try {
-				const response = await fetchWithTimeout(resolvedRedirectUrl.href);
-				if (response) {
-					const newContent = await response.text();
-					const { document } = parseHTML(newContent);
-					instance.document = document;
+function handleMetaRefreshRedirect(instance) {
+	if (instance.options.followMetaRefresh) {
+		if (instance.document && typeof instance.document.querySelector === 'function') {
+			const content = instance.document.querySelector('meta[http-equiv="refresh"]')?.getAttribute('content');
+			if (content) {
+				const match = content.match(/url=(.*)/i);
+				if (match && match[1]) {
+					const redirectUrl = new URL(match[1], instance.site).href;
+					instance.emit('log', {
+						module: 'anchors',
+						message: `Following meta refresh redirect to ${redirectUrl}`,
+					});
+					// Recursively call checkAnchors on the new URL
+					return checkAnchors({ ...instance, site: redirectUrl });
 				}
-			} catch (error) {
-				instance.emit('error', {
-					module: 'anchors',
-					error: `Failed to follow meta refresh redirect to ${resolvedRedirectUrl.href}: ${error.message}`,
-					explanation:
-						'An error occurred while trying to fetch the redirected page. This could be due to network issues, server problems, or the target URL being inaccessible.',
-					suggestion:
-						'Check if the redirect URL is accessible in a browser. The original page will be processed instead of the redirect target.',
-				});
-				// Continue with original document if redirect fails
 			}
 		}
 	}
+	return null;
 }
 
 /**
@@ -324,12 +265,12 @@ async function checkAnchors(instance) {
  */
 export default async function checkAllAnchors(instance) {
 	instance.emit('start', {
-		module: 'checkAllAnchors',
+		module: 'anchors',
 		niceName: 'Check all anchors',
 	});
 
 	const feeds = await checkAnchors(instance);
 
-	instance.emit('end', { module: 'checkAllAnchors', feeds });
+	instance.emit('end', { module: 'anchors', feeds });
 	return feeds;
 }

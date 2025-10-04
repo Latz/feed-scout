@@ -104,7 +104,7 @@ export default class FeedScout extends EventEmitter {
 				try {
 					const response = await fetchWithTimeout(this.site);
 					if (!response) {
-						this.emit('error', `Failed to fetch ${this.site}`);
+						this.emit('error', { module: 'FeedScout', error: `Failed to fetch ${this.site}` });
 						this.content = '';
 						this.document = { querySelectorAll: () => [] };
 						this.emit('initialized');
@@ -116,7 +116,7 @@ export default class FeedScout extends EventEmitter {
 
 					this.emit('initialized');
 				} catch (error) {
-					this.emit(`Error fetching ${this.site}:`, error);
+					this.emit('error', { module: 'FeedScout', error: `Error fetching ${this.site}: ${error.message}` });
 					this.content = '';
 					this.document = { querySelectorAll: () => [] };
 					this.emit('initialized');

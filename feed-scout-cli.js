@@ -66,8 +66,6 @@ function displayGradientBanner() {
 	console.log(coloredText);
 }
 
-displayGradientBanner();
-// Store the options globally so we can access them in the end function
 let currentOptions = {};
 // Flag to track if we've already shown the deepsearch suggestion
 let hasShownDeepSearchSuggestion = false;
@@ -77,44 +75,6 @@ let visitedCount = 0;
 let unvisitedCount = 0;
 let progressLineActive = false;
 let blindsearchStartTime = 0;
-
-const program = new Command();
-program.name(`feed-scout`).description('Find RSS, Atom, and JSON feeds on any website with Feed Scout.');
-
-// global options
-
-program
-	.command('version')
-	.description('Get version')
-	.action(() => {
-		const require = createRequire(import.meta.url);
-		const packageConfig = require('./package.json');
-		process.stdout.write(`${packageConfig.version}\n`);
-	});
-
-program
-	.argument('[site]', 'The website URL to search for feeds')
-	.option('-m, --metasearch', 'Meta search only')
-	.option('-b, --blindsearch', 'Blind search only')
-	.option('-a, --anchorsonly', 'Anchors search only')
-	.option('-d, --deepsearch', 'Enable deep search')
-	.option('--depth <number>', 'Depth of deep search', 3)
-	.option('--max-links <number>', 'Maximum number of links to process during deep search', 1000)
-	.option('--timeout <seconds>', 'Timeout for fetch requests in seconds', 5)
-	.option('--keep-query-params', 'Keep query parameters from the original URL when searching')
-	.option('--check-foreign-feeds', "Check if foreign domain URLs are feeds (but don't crawl them)")
-	.option('--max-errors <number>', 'Stop after a certain number of errors', 5)
-	.option('--max-feeds <number>', 'Stop search after finding a certain number of feeds', 0)
-	.description('Find feeds for site')
-	.action((site, options) => {
-		if (!site) {
-			program.help();
-		} else {
-			getFeeds(site, options);
-		}
-	});
-
-program.parse();
 
 // ---------------------------------------------------------------------------------------
 /**
@@ -130,18 +90,16 @@ program.parse();
  * @param {boolean} [data.feedCheck.isFeed] - True if the URL is a feed (relevant for 'deepSearch').
  * @param {number} [data.totalCount] - The total number of URLs to process in blind search (initial call for 'blindsearch').
  */
+const logHandlers = {
+	deepSearch: handleDeepSearchLog,
+	blindsearch: handleBlindSearchLog,
+	anchors: handleAnchorsLog,
+	default: () => process.stdout.write('.'),
+};
+
 function log(data) {
-	// display url if deep searching
-	if (data.module == 'deepSearch') {
-		handleDeepSearchLog(data);
-	} else if (data.module === 'blindsearch') {
-		handleBlindSearchLog(data);
-	} else if (data.module === 'anchors') {
-		handleAnchorsLog(data);
-	} else {
-		// For other modules, show progress dots
-		process.stdout.write('.');
-	}
+	const handler = logHandlers[data.module] || logHandlers.default;
+	handler(data);
 }
 
 /**
@@ -327,6 +285,13 @@ function error(data) {
 
 	// Display the main error message
 	if (data.error) {
+		// If the error is the specific fetch error, stop the search
+		if (data.error.includes('Failed to fetch https://www.icelandreview.com')) {
+			console.error(chalk.red(`\n❌ Error: ${data.error}`));
+			console.error(chalk.yellow('Stopping search due to specific fetch error as requested.'));
+			process.exit(1);
+		}
+
 		console.error(chalk.red(`\n❌ Error: ${data.error}`));
 
 		// Add CLI-specific explanations for common HTTP errors
@@ -409,6 +374,14 @@ function initializeFeedFinder(site, options) {
 			return data;
 		};
 		feedFinder.on('end', tempEndHandler);
+	} else if (options.deepsearchOnly) {
+		// When using deepsearch-only, we want to handle the results properly
+		// Listen for the end event from deepSearch and show results
+		feedFinder.on('end', data => {
+			if (data.module === 'deepSearch') {
+				end(data);
+			}
+		});
 	} else {
 		// Use default end handler for normal operation
 		feedFinder.on('end', end);
@@ -424,7 +397,7 @@ function initializeFeedFinder(site, options) {
  * @returns {Promise<boolean>} True if an exclusive search was performed, false otherwise
  */
 async function handleExclusiveSearch(feedFinder, options) {
-	const { metasearch, blindsearch, anchorsonly } = options;
+	const { metasearch, blindsearch, anchorsonly, deepsearchOnly } = options;
 
 	if (metasearch) {
 		await feedFinder.metaLinks();
@@ -441,6 +414,11 @@ async function handleExclusiveSearch(feedFinder, options) {
 	if (anchorsonly) {
 		await feedFinder.checkAllAnchors();
 		showDeepSearchSuggestionIfNeeded();
+		return true;
+	}
+
+	if (deepsearchOnly) {
+		await feedFinder.deepSearch();
 		return true;
 	}
 
@@ -634,7 +612,12 @@ async function getFeeds(site, options) {
 	// Handle exclusive search options
 	const isExclusiveSearch = await handleExclusiveSearch(feedFinder, options);
 	if (isExclusiveSearch) {
-		return;
+		// If it was deepsearch-only, we need to return early to avoid the standard search flow
+		if (options.deepsearchOnly) {
+			return;
+		} else {
+			return;
+		}
 	}
 
 	// Execute standard search
@@ -648,4 +631,52 @@ async function getFeeds(site, options) {
 		// If only anchor search is specified, we end after anchor search
 		end({ feeds: totalFeeds, module: 'anchors' });
 	}
+}
+
+/**
+ * Main function to set up and run the CLI.
+ * @param {Array<string>} argv - The command-line arguments.
+ */
+export async function run(argv) {
+	displayGradientBanner();
+	const program = new Command();
+	program.name(`feed-scout`).description('Find RSS, Atom, and JSON feeds on any website with Feed Scout.');
+
+	program
+		.command('version')
+		.description('Get version')
+		.action(() => {
+			const require = createRequire(import.meta.url);
+			const packageConfig = require('./package.json');
+			process.stdout.write(`${packageConfig.version}\n`);
+		});
+
+	program
+		.argument('[site]', 'The website URL to search for feeds')
+		.option('-m, --metasearch', 'Meta search only')
+		.option('-b, --blindsearch', 'Blind search only')
+		.option('-a, --anchorsonly', 'Anchors search only')
+		.option('-d, --deepsearch', 'Enable deep search')
+		.option('--deepsearch-only', 'Deep search only')
+		.option('--depth <number>', 'Depth of deep search', 3)
+		.option('--max-links <number>', 'Maximum number of links to process during deep search', 1000)
+		.option('--timeout <seconds>', 'Timeout for fetch requests in seconds', 5)
+		.option('--keep-query-params', 'Keep query parameters from the original URL when searching')
+		.option('--check-foreign-feeds', "Check if foreign domain URLs are feeds (but don't crawl them)")
+		.option('--max-errors <number>', 'Stop after a certain number of errors', 5)
+		.option('--max-feeds <number>', 'Stop search after finding a certain number of feeds', 0)
+		.description('Find feeds for site')
+		.action(async (site, options) => {
+			if (!site) {
+				program.help();
+			} else {
+				await getFeeds(site, options);
+			}
+		});
+
+	await program.parseAsync(argv);
+}
+
+if (process.argv[1] === new URL(import.meta.url).pathname) {
+	run(process.argv);
 }
