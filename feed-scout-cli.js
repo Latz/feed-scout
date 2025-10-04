@@ -39,23 +39,28 @@ function displayGradientBanner() {
 	let nonEmptyIndex = 0;
 
 	lines.forEach(line => {
-		// Preserve empty lines
+		// Preserve empty lines without color processing
 		if (line.trim() === '') {
 			coloredText += line + '\n';
 			return;
 		}
 
-		// Calculate color ratio for this line
+		// Calculate color interpolation ratio for this line
+		// Uses (nonEmptyLines - 1) as denominator to ensure the last line gets ratio = 1.0
+		// This creates a smooth gradient from first line (ratio = 0) to last line (ratio = 1)
+		// Example: with 3 lines, ratios will be 0, 0.5, 1.0
 		const ratio = nonEmptyLines > 1 ? nonEmptyIndex / (nonEmptyLines - 1) : 0;
 
-		// Calculate RGB values
+		// Linear interpolation formula: start + ratio * (end - start)
+		// This creates a smooth transition between startColor and endColor
+		// Math.round() ensures we get integer RGB values (0-255)
 		const r = Math.round(startColor.r + ratio * (endColor.r - startColor.r));
 		const g = Math.round(startColor.g + ratio * (endColor.g - startColor.g));
 		const b = Math.round(startColor.b + ratio * (endColor.b - startColor.b));
 
-		// Apply color to the entire line
+		// Apply the calculated RGB color to the entire line using chalk's 24-bit color support
 		coloredText += chalk.rgb(r, g, b)(line) + '\n';
-		nonEmptyIndex++;
+		nonEmptyIndex++; // Increment counter for next non-empty line
 	});
 
 	console.log(coloredText);

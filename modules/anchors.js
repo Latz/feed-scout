@@ -100,8 +100,11 @@ function isAllowedDomain(url, baseUrl) {
 async function handleMetaRefreshRedirect(instance) {
 	const content = instance.document.querySelector('meta[http-equiv="refresh"]')?.getAttribute('content');
 	if (content && content.toLowerCase().includes('url=')) {
-		// Extract redirect URL from content attribute
+		// Extract redirect URL from content attribute using improved regex
+		// Meta refresh format: "delay;url=target_url" where delay is in seconds
 		// Handle various formats: url=http://example.com, url="http://example.com", url='http://example.com'
+		// The regex uses non-capturing group (?:["']?) for optional quotes and captures the URL
+		// Character class [^"';,\s]+ matches URL characters but stops at quotes, semicolons, commas, or whitespace
 		const urlMatch = content.match(/url=(?:["']?)([^"';,\s]+)(?:["']?)/i);
 		if (urlMatch && urlMatch[1]) {
 			const redirectUrl = urlMatch[1].trim();

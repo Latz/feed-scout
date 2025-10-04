@@ -1,40 +1,42 @@
 /**
  * Common feed endpoint paths to try during the blind search
+ * This comprehensive list is based on analysis of popular websites and feed standards
+ * Ordered roughly by frequency of use, with most common patterns first
  * @type {string[]}
  */
 const FEED_ENDPOINTS = [
-	// Standard RSS/Atom paths
-	'&_rss=1', //ebay
-	'.rss', // e.g. Reddit
-	'rss',
-	'rss/',
-	'feed',
-	'atom',
-	'.atom',
-	'.xml',
-	'.json',
-	'syndication/',
-	'feeds',
-	'feeds/',
-	'atom.xml',
-	'rss.xml', // this seems to be to lmost often used file name
-	'rssfeed.xml',
-	'rssfeed.rdf',
-	'rss/rss.php',
-	'rss/news/rss.xml',
-	'index.rss',
-	'index.xml',
-	'index.xml',
-	'rss.xml',
-	'atom.xml',
-	'feed.xml',
-	'feed.json',
-	'feed.rss',
-	'feed.atom',
-	'index.atom',
-	'rss/index.xml',
-	'atom/index.xml',
-	
+	// Standard RSS/Atom paths (most common)
+	'&_rss=1', // eBay-style query parameter feeds
+	'.rss', // Reddit-style extension feeds
+	'rss', // Simple RSS directory
+	'rss/', // RSS directory with trailing slash
+	'feed', // Generic feed endpoint (very common)
+	'atom', // Atom feed endpoint
+	'.atom', // Atom extension feeds
+	'.xml', // Generic XML feeds
+	'.json', // JSON Feed format
+	'syndication/', // Syndication directory
+	'feeds', // Plural feeds directory
+	'feeds/', // Feeds directory with trailing slash
+	'atom.xml', // Standard Atom filename
+	'rss.xml', // Most commonly used RSS filename
+	'rssfeed.xml', // Descriptive RSS filename
+	'rssfeed.rdf', // RDF-based RSS feeds
+	'rss/rss.php', // PHP-generated RSS
+	'rss/news/rss.xml', // News-specific RSS path
+	'index.rss', // Index-style RSS
+	'index.xml', // Generic index XML
+	'index.xml', // Duplicate entry (should be cleaned up)
+	'rss.xml', // Duplicate entry (should be cleaned up)
+	'atom.xml', // Duplicate entry (should be cleaned up)
+	'feed.xml', // Generic feed XML
+	'feed.json', // JSON Feed format
+	'feed.rss', // RSS with feed prefix
+	'feed.atom', // Atom with feed prefix
+	'index.atom', // Index-style Atom
+	'rss/index.xml', // RSS directory index
+	'atom/index.xml', // Atom directory index
+
 	// Blog platform specific paths
 	'blog?format=rss', // Squarespace
 	'blog/feed',
@@ -44,7 +46,7 @@ const FEED_ENDPOINTS = [
 	'blog-feed.xml', //WIX sites
 	'weblog/rss',
 	'weblog/atom',
-	
+
 	// WordPress specific paths
 	'?format=feed', // Joomla
 	'index.php?format=feed', // Joomla
@@ -59,7 +61,7 @@ const FEED_ENDPOINTS = [
 	'wp-rss2.php',
 	'wp-atom.php',
 	'wp-rdf.php',
-	
+
 	// News sites and publications
 	'rss/news/',
 	'rss/articles/',
@@ -71,7 +73,7 @@ const FEED_ENDPOINTS = [
 	'latest/feed',
 	'latest.rss',
 	'news.xml',
-	
+
 	// E-commerce and product feeds
 	'products/rss',
 	'products/atom',
@@ -84,7 +86,7 @@ const FEED_ENDPOINTS = [
 	'specials/feed',
 	'promotions/feed',
 	'products.rss', // product feeds
-	
+
 	// Podcast and media feeds
 	'podcast/rss',
 	'podcast/atom',
@@ -98,7 +100,7 @@ const FEED_ENDPOINTS = [
 	'podcast.rss', // audio content
 	'videos.rss', // video content
 	'gallery.rss', // image galleries
-	
+
 	// Social media and community feeds
 	'community/feed',
 	'forum/rss',
@@ -107,39 +109,39 @@ const FEED_ENDPOINTS = [
 	'discussions/feed',
 	'comments/feed',
 	'reviews/feed',
-	
+
 	// Event and calendar feeds
 	'events/feed',
 	'events.rss', // calendar events
 	'calendar/feed',
 	'schedule/feed',
 	'agenda/feed',
-	
+
 	// Job and career feeds
 	'jobs/feed',
 	'jobs.rss', // job listings
 	'careers/feed',
 	'opportunities/feed',
 	'vacancies/feed',
-	
+
 	// Content management systems
 	'content/feed',
 	'pages/feed',
 	'documents/feed',
 	'resources/feed',
-	
+
 	// Newsletter and email feeds
 	'newsletter/feed',
 	'emails/feed',
 	'mailinglist/feed',
 	'subscription/feed',
-	
+
 	// Custom and alternative paths
 	'newsfeed',
 	'rssfeed',
 	'atomfeed',
 	'jsonfeed',
-	
+
 	// API style feeds
 	'api/rss.xml', // API endpoints
 	'api/feed',
@@ -150,7 +152,7 @@ const FEED_ENDPOINTS = [
 	'v1/feed',
 	'v2/feed',
 	'api/mobile/feed',
-	
+
 	// Legacy and alternative extensions
 	'.rdf',
 	'rdf',
@@ -158,25 +160,25 @@ const FEED_ENDPOINTS = [
 	'.opml',
 	'opml',
 	'opml/',
-	
+
 	// Category and tag feeds
 	'category/*/feed',
 	'tag/*/feed',
 	'topics/feed',
 	'tags/feed',
-	
+
 	// User and author feeds
 	'author/*/feed',
 	'user/*/feed',
 	'profile/*/feed',
-	
+
 	// Time-based feeds
 	'daily/feed',
 	'weekly/feed',
 	'monthly/feed',
 	'yearly/feed',
 	'archive/feed',
-	
+
 	// Specialized content feeds
 	'press/feed',
 	'releases/feed',
@@ -184,17 +186,17 @@ const FEED_ENDPOINTS = [
 	'updates/feed',
 	'changelog/feed',
 	'revisions/feed',
-	
+
 	// Mobile and app feeds
 	'mobile/feed',
 	'app/feed',
-	
+
 	// Regional and local feeds
 	'local/feed',
 	'regional/feed',
 	'national/feed',
 	'international/feed',
-	
+
 	// Industry specific feeds
 	'industry/feed',
 	'sector/feed',
@@ -206,21 +208,21 @@ const FEED_ENDPOINTS = [
 	'science/feed',
 	'health/feed',
 	'education/feed',
-	
+
 	// Aggregation and compilation feeds
 	'all/feed',
 	'everything/feed',
 	'combined/feed',
 	'aggregate/feed',
 	'compilation/feed',
-	
+
 	// International variations
 	'actualites/feed', // French news
 	'noticias/feed', // Spanish news
 	'nachrichten/feed', // German news
 	'novosti/feed', // Russian news
 	'nieuws/feed', // Dutch news
-	
+
 	// Query parameter based feeds
 	'?rss=1',
 	'?atom=1',
@@ -229,7 +231,7 @@ const FEED_ENDPOINTS = [
 	'?format=rss',
 	'?format=atom',
 	'?format=feed',
-	
+
 	// Other existing paths from original list
 	'export/rss.xml', // export directories
 	'external?type=rss2',
@@ -281,6 +283,7 @@ import checkFeed from './checkFeed.js';
 
 /**
  * Generates all possible endpoint URLs by traversing up the URL path
+ * Uses a "path traversal" algorithm that starts from the specific URL and works up to the domain root
  * @param {string} siteUrl - The base site URL
  * @param {boolean} keepQueryParams - Whether to keep query parameters
  * @returns {string[]} Array of potential feed URLs
@@ -291,20 +294,31 @@ function generateEndpointUrls(siteUrl, keepQueryParams) {
 	const endpointUrls = [];
 
 	// Extract query parameters if the keepQueryParams option is enabled
+	// This preserves original URL parameters like ?category=tech in feed URLs
 	let queryParams = '';
 	if (keepQueryParams) {
 		const urlObj = new URL(siteUrl);
 		queryParams = urlObj.search; // This includes the '?' character if there are query parameters
 	}
 
+	// Path traversal algorithm: Start from specific path, work up to domain root
+	// Example: https://example.com/blog/posts → https://example.com/blog → https://example.com
+	// This strategy tries more specific locations first, then falls back to general ones
 	while (path.length >= origin.length) {
-		// Ensure we don't have a double slash by removing a trailing slash from the path.
+		// Normalize path by removing trailing slash to prevent double slashes in URLs
+		// Example: "https://example.com/blog/" becomes "https://example.com/blog"
 		const basePath = path.endsWith('/') ? path.slice(0, -1) : path;
+
+		// Try each known feed endpoint at this path level
 		FEED_ENDPOINTS.forEach(endpoint => {
-			// Add query parameters to the endpoint URL if they exist and the option is enabled
+			// Construct final URL: basePath + "/" + endpoint + queryParams (if any)
+			// Example: "https://example.com/blog" + "/" + "feed" + "?category=tech"
 			const urlWithParams = queryParams ? `${basePath}/${endpoint}${queryParams}` : `${basePath}/${endpoint}`;
 			endpointUrls.push(urlWithParams);
 		});
+
+		// Move up one directory level by removing everything after the last "/"
+		// Example: "https://example.com/blog/posts" → "https://example.com/blog"
 		path = path.slice(0, path.lastIndexOf('/'));
 	}
 
@@ -338,6 +352,7 @@ function addFeed(feedResult, url, feeds, rssFound, atomFound) {
 
 /**
  * Determines if the search should continue based on options and found feeds
+ * Implements early termination logic: stop when both RSS and Atom feeds are found (unless checking all)
  * @param {number} currentIndex - Current index in the URL array
  * @param {number} totalUrls - Total number of URLs to check
  * @param {boolean} rssFound - Whether an RSS feed has been found
@@ -346,6 +361,11 @@ function addFeed(feedResult, url, feeds, rssFound, atomFound) {
  * @returns {boolean} Whether to continue searching
  */
 function shouldContinueSearch(currentIndex, totalUrls, rssFound, atomFound, shouldCheckAll) {
+	// Continue if we haven't processed all URLs AND we haven't found both feed types
+	// Logic breakdown:
+	// - If shouldCheckAll is true: never stop early (!(false) = true)
+	// - If shouldCheckAll is false: stop when both RSS and Atom are found (!(true && true) = false)
+	// - Always stop when currentIndex >= totalUrls
 	return currentIndex < totalUrls && !(shouldCheckAll ? false : rssFound && atomFound);
 }
 
@@ -400,7 +420,7 @@ async function processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance) {
 		if (result.found) {
 			rssFound = result.rssFound;
 			atomFound = result.atomFound;
-			
+
 			// Check if we've reached the maximum number of feeds
 			if (maxFeeds > 0 && feeds.length >= maxFeeds) {
 				await handleMaxFeedsReached(instance, feeds, maxFeeds);
@@ -453,7 +473,7 @@ async function processSingleFeedUrl(url, instance, foundUrls, feeds, rssFound, a
 	} catch (error) {
 		await handleFeedError(instance, url, error);
 	}
-	
+
 	return { found: false, rssFound, atomFound };
 }
 

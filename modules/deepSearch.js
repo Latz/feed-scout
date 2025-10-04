@@ -63,7 +63,15 @@ function excludedFile(url) {
 // -------------------------------------------------------------------------------
 
 class Crawler extends EventEmitter {
-	constructor(startUrl, maxDepth = 3, concurrency = 5, maxLinks = 1000, checkForeignFeeds = false, maxErrors = 5, maxFeeds = 0) {
+	constructor(
+		startUrl,
+		maxDepth = 3,
+		concurrency = 5,
+		maxLinks = 1000,
+		checkForeignFeeds = false,
+		maxErrors = 5,
+		maxFeeds = 0
+	) {
 		super();
 		const absoluteStartUrl = new URL(startUrl);
 		this.startUrl = absoluteStartUrl.href;
@@ -75,30 +83,36 @@ class Crawler extends EventEmitter {
 		this.maxErrors = maxErrors; // Maximum number of errors before stopping
 		this.maxFeeds = maxFeeds; // Maximum number of feeds to find before stopping
 		this.errorCount = 0; // Current error count
+		// Initialize async queue with concurrency control
+		// The queue processes crawlPage tasks with limited concurrency to prevent overwhelming the target server
+		// bind(this) ensures 'this' context is preserved when crawlPage is called by the queue
 		this.queue = queue(this.crawlPage.bind(this), this.concurrency);
-		this.visitedUrls = new Set();
-		this.timeout = 5000; // Default timeout value
+		this.visitedUrls = new Set(); // Track visited URLs to prevent infinite loops
+		this.timeout = 5000; // Default timeout value for HTTP requests
 		this.maxLinksReachedMessageEmitted = false; // Flag to track if message was emitted
 
-		this.feeds = [];
+		this.feeds = []; // Array to store discovered feeds
 
+		// Error handling strategy: Implement circuit breaker pattern
+		// Stop crawling after maxErrors to prevent endless error loops on problematic sites
 		this.queue.error((err, task) => {
 			// Only process if we haven't reached the error limit yet
 			if (this.errorCount < this.maxErrors) {
 				// Increment error count
 				this.errorCount++;
-				
+
 				// Emit error event with the specified pattern when an error occurs
 				this.emit('error', { module: 'deepSearch', error: `Async error: ${err}` });
-				
-				// Check if we've reached the maximum error count
+
+				// Circuit breaker: Kill queue when error threshold is reached
+				// This prevents the crawler from continuing to make requests to a problematic site
 				if (this.errorCount >= this.maxErrors) {
 					// Kill the queue to stop processing immediately
 					this.queue.kill();
 					// Emit log message about stopping due to errors
 					this.emit('log', {
 						module: 'deepSearch',
-						message: `Stopped due to ${this.errorCount} errors (max ${this.maxErrors} allowed).`
+						message: `Stopped due to ${this.errorCount} errors (max ${this.maxErrors} allowed).`,
 					});
 				}
 			}
@@ -130,17 +144,26 @@ class Crawler extends EventEmitter {
 	 */
 	isValidUrl(url) {
 		try {
-			const isValid = tldts.getDomain(url) == tldts.getDomain(this.startUrl) && !excludedFile(url);
-			return isValid;
+			// Domain comparison using tldts.getDomain() to extract the registrable domain
+			// Example: both "blog.example.com" and "www.example.com" return "example.com"
+			// This allows crawling subdomains of the same site while blocking external domains
+			const sameDomain = tldts.getDomain(url) == tldts.getDomain(this.startUrl);
+
+			// File type filtering prevents downloading large binary files (images, videos, archives)
+			// See excludedFile() function for the complete list of blocked extensions
+			const notExcludedFile = !excludedFile(url);
+
+			return sameDomain && notExcludedFile;
 		} catch (error) {
+			// URL parsing can fail for malformed URLs - handle gracefully
 			// Only process if we haven't reached the error limit yet
 			if (this.errorCount < this.maxErrors) {
 				// Increment error count
 				this.errorCount++;
-				
+
 				// Emit error event with the specified pattern when an error occurs
 				this.emit('error', { module: 'deepSearch', error: `Invalid URL: ${url}` });
-				
+
 				// Check if we've reached the maximum error count
 				if (this.errorCount >= this.maxErrors) {
 					// Kill the queue to stop processing immediately
@@ -148,10 +171,11 @@ class Crawler extends EventEmitter {
 					// Emit log message about stopping due to errors
 					this.emit('log', {
 						module: 'deepSearch',
-						message: `Stopped due to ${this.errorCount} errors (max ${this.maxErrors} allowed).`
+						message: `Stopped due to ${this.errorCount} errors (max ${this.maxErrors} allowed).`,
 					});
 				}
 			}
+			// Return false for any URL that can't be validated
 			return false;
 		}
 	}
@@ -197,7 +221,7 @@ class Crawler extends EventEmitter {
 			if (this.errorCount < this.maxErrors) {
 				// Increment error count
 				this.errorCount++;
-				
+
 				// Emit log with error information for failed fetch
 				this.emit('log', {
 					module: 'deepSearch',
@@ -205,7 +229,7 @@ class Crawler extends EventEmitter {
 					depth: depth,
 					error: 'Failed to fetch URL - timeout or network error',
 				});
-				
+
 				// Check if we've reached the maximum error count
 				if (this.errorCount >= this.maxErrors) {
 					// Kill the queue to stop processing immediately
@@ -213,7 +237,7 @@ class Crawler extends EventEmitter {
 					// Emit log message about stopping due to errors
 					this.emit('log', {
 						module: 'deepSearch',
-						message: `Stopped due to ${this.errorCount} errors (max ${this.maxErrors} allowed).`
+						message: `Stopped due to ${this.errorCount} errors (max ${this.maxErrors} allowed).`,
 					});
 				}
 			}
@@ -225,7 +249,7 @@ class Crawler extends EventEmitter {
 			if (this.errorCount < this.maxErrors) {
 				// Increment error count
 				this.errorCount++;
-				
+
 				// Emit log with error information for failed fetch
 				this.emit('log', {
 					module: 'deepSearch',
@@ -233,7 +257,7 @@ class Crawler extends EventEmitter {
 					depth: depth,
 					error: `HTTP ${response.status} ${response.statusText}`,
 				});
-				
+
 				// Check if we've reached the maximum error count
 				if (this.errorCount >= this.maxErrors) {
 					// Kill the queue to stop processing immediately
@@ -241,7 +265,7 @@ class Crawler extends EventEmitter {
 					// Emit log message about stopping due to errors
 					this.emit('log', {
 						module: 'deepSearch',
-						message: `Stopped due to ${this.errorCount} errors (max ${this.maxErrors} allowed).`
+						message: `Stopped due to ${this.errorCount} errors (max ${this.maxErrors} allowed).`,
 					});
 				}
 			}
@@ -273,7 +297,7 @@ class Crawler extends EventEmitter {
 			try {
 				// Check if the link is on the same domain OR if we should check foreign feeds
 				const shouldCheckFeed = this.isValidUrl(absoluteUrl) || this.checkForeignFeeds;
-				
+
 				if (shouldCheckFeed) {
 					// Check if the link itself is a feed (fetches the URL content to check)
 					const feedResult = await checkFeed(absoluteUrl);
@@ -293,7 +317,7 @@ class Crawler extends EventEmitter {
 								depth: depth + 1,
 								feedCheck: { isFeed: true, type: feedResult.type },
 							});
-							
+
 							// Check if we've reached the maximum number of feeds
 							if (this.maxFeeds > 0 && this.feeds.length >= this.maxFeeds) {
 								// Kill the queue to stop processing immediately
@@ -301,7 +325,7 @@ class Crawler extends EventEmitter {
 								// Emit log message about stopping due to reaching max feeds
 								this.emit('log', {
 									module: 'deepSearch',
-									message: `Stopped due to reaching maximum feeds limit: ${this.feeds.length} feeds found (max ${this.maxFeeds} allowed).`
+									message: `Stopped due to reaching maximum feeds limit: ${this.feeds.length} feeds found (max ${this.maxFeeds} allowed).`,
 								});
 								// Break out of the loop to stop processing the current page
 								break;
@@ -325,7 +349,7 @@ class Crawler extends EventEmitter {
 				if (this.errorCount < this.maxErrors) {
 					// Increment error count
 					this.errorCount++;
-					
+
 					// Emit error event with the specified pattern when an error occurs
 					this.emit('error', { module: 'deepSearch', error: `Error checking feed ${absoluteUrl}: ${error.message}` });
 					// Also emit log with error information
@@ -335,7 +359,7 @@ class Crawler extends EventEmitter {
 						depth: depth + 1,
 						error: `Error checking feed: ${error.message}`,
 					});
-					
+
 					// Check if we've reached the maximum error count
 					if (this.errorCount >= this.maxErrors) {
 						// Kill the queue to stop processing immediately
@@ -343,7 +367,7 @@ class Crawler extends EventEmitter {
 						// Emit log message about stopping due to errors
 						this.emit('log', {
 							module: 'deepSearch',
-							message: `Stopped due to ${this.errorCount} errors (max ${this.maxErrors} allowed).`
+							message: `Stopped due to ${this.errorCount} errors (max ${this.maxErrors} allowed).`,
 						});
 						// Break out of the loop to stop processing the current page
 						break;
@@ -353,7 +377,7 @@ class Crawler extends EventEmitter {
 					break;
 				}
 			}
-			
+
 			// Only add the link to the queue for further crawling if:
 			// 1. It's within depth limits
 			// 2. It's on the same domain as the start URL (to prevent following external links)
@@ -365,9 +389,9 @@ class Crawler extends EventEmitter {
 } // class Crawler
 export default async function deepSearch(url, options = {}, instance = null) {
 	const crawler = new Crawler(
-		url, 
-		options.depth || 3, 
-		5, 
+		url,
+		options.depth || 3,
+		5,
 		options.maxLinks || 1000,
 		!!options.checkForeignFeeds, // Whether to check foreign domains for feeds
 		options.maxErrors || 5, // Maximum number of errors before stopping

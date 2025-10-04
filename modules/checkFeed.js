@@ -13,30 +13,59 @@
 
 import fetchWithTimeout from './fetchWithTimeout.js';
 
-// Pre-compiled regex patterns for all feed detection and processing (performance optimization)
+// Pre-compiled regex patterns for all feed detection and processing
+// Performance optimization: Compiling regex patterns once at module load time instead of
+// creating new RegExp objects on every function call (eliminates 9+ regex compilations per checkFeed call)
 const FEED_PATTERNS = {
-	// CDATA processing
+	// CDATA processing - matches XML CDATA sections: <![CDATA[content]]>
+	// Used to extract clean text content from feeds that wrap content in CDATA
 	CDATA: /<!\[CDATA\[(.*?)\]\]>/g,
 
-	// RSS patterns
+	// RSS feed detection patterns
 	RSS: {
+		// Matches RSS root element with version attribute: <rss version="2.0">
+		// [^>]* matches any attributes before version, \s+ ensures whitespace before version
 		VERSION: /<rss[^>]*\s+version\s*=\s*["'][\d.]+["'][^>]*>/i,
+
+		// Matches RSS channel opening tag (required container for RSS content)
 		CHANNEL: /<channel[^>]*>/i,
+
+		// Matches RSS item opening tag (individual feed entries)
 		ITEM: /<item[^>]*>/i,
+
+		// Matches RSS description opening tag (content description)
 		DESCRIPTION: /<description[^>]*>/i,
+
+		// Matches RSS channel closing tag
 		CHANNEL_END: /<\/channel>/i,
+
+		// Captures entire channel content between opening and closing tags
+		// [\s\S]*? uses non-greedy matching to capture everything including newlines
 		CHANNEL_CONTENT: /<channel>([\s\S]*?)<\/channel>/i,
+
+		// Captures title content between title tags (feed or item title)
 		TITLE: /<title>([\s\S]*?)<\/title>/i,
 	},
 
-	// Atom patterns
+	// Atom feed detection patterns
 	ATOM: {
+		// Matches Atom feed opening tag with optional attributes: <feed ...>
+		// (?:\s+[^>]*)? is a non-capturing group for optional attributes
 		FEED_START: /<feed(?:\s+[^>]*)?>/i,
+
+		// Matches Atom namespace declaration: xmlns="...atom..." or xmlns:atom="..."
+		// These patterns ensure the feed uses the Atom XML namespace
 		NAMESPACE_XMLNS: /<feed[^>]*xmlns[^>]*atom/i,
 		NAMESPACE_XMLNS_ATOM: /<feed[^>]*xmlns:atom/i,
 		NAMESPACE_ATOM_PREFIX: /<feed[^>]*atom:/i,
+
+		// Matches Atom entry opening tag (individual feed entries)
 		ENTRY: /<entry[^>]*>/i,
+
+		// Matches Atom title opening tag
 		TITLE_TAG: /<title[^>]*>/i,
+
+		// Captures title content between title tags
 		TITLE_CONTENT: /<title>([\s\S]*?)<\/title>/i,
 	},
 };
@@ -129,16 +158,18 @@ function extractRssTitle(content) {
  * @returns {object|null} Object with type 'rss' and title if RSS feed, null otherwise
  */
 function checkRss(content) {
-	// Check for RSS root element with version attribute
-	// RSS feeds must start with an <rss> tag with a version attribute
+	// Step 1: Check for RSS root element with version attribute
+	// RSS feeds must start with an <rss> tag with a version attribute (RSS 0.91, 1.0, 2.0, etc.)
 	if (FEED_PATTERNS.RSS.VERSION.test(content)) {
-		// Check if it also contains required RSS elements like <channel> and <item>
-		const hasChannel = FEED_PATTERNS.RSS.CHANNEL.test(content);
-		const hasItem = FEED_PATTERNS.RSS.ITEM.test(content);
+		// Step 2: Validate required RSS structure elements
+		const hasChannel = FEED_PATTERNS.RSS.CHANNEL.test(content); // Container for feed metadata
+		const hasItem = FEED_PATTERNS.RSS.ITEM.test(content); // Individual feed entries
+		const hasDescription = FEED_PATTERNS.RSS.DESCRIPTION.test(content); // Content description
 
-		// Additional check: RSS feeds should also have specific elements like description
-		const hasDescription = FEED_PATTERNS.RSS.DESCRIPTION.test(content);
-
+		// Step 3: Validate RSS structure - must have channel + description + (items OR proper channel closure)
+		// The (hasItem || FEED_PATTERNS.RSS.CHANNEL_END.test(content)) check handles edge cases:
+		// - Normal feeds: have <item> elements
+		// - Empty feeds: have proper </channel> closure but no items yet
 		if (hasChannel && hasDescription && (hasItem || FEED_PATTERNS.RSS.CHANNEL_END.test(content))) {
 			const title = extractRssTitle(content);
 			return { type: 'rss', title };
