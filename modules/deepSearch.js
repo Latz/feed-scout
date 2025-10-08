@@ -65,14 +65,19 @@ function excludedFile(url) {
 class Crawler extends EventEmitter {
 	constructor(
 		startUrl,
-		maxDepth = 3,
-		concurrency = 5,
-		maxLinks = 1000,
-		checkForeignFeeds = false,
-		maxErrors = 5,
-		maxFeeds = 0
+		options = {}
 	) {
 		super();
+		const {
+			maxDepth = 3,
+			concurrency = 5,
+			maxLinks = 1000,
+			checkForeignFeeds = false,
+			maxErrors = 5,
+			maxFeeds = 0,
+			instance = null
+		} = options;
+		
 		const absoluteStartUrl = new URL(startUrl);
 		this.startUrl = absoluteStartUrl.href;
 		this.maxDepth = maxDepth;
@@ -83,6 +88,7 @@ class Crawler extends EventEmitter {
 		this.maxErrors = maxErrors; // Maximum number of errors before stopping
 		this.maxFeeds = maxFeeds; // Maximum number of feeds to find before stopping
 		this.errorCount = 0; // Current error count
+		this.instance = instance; // Store the FeedScout instance
 		// Initialize async queue with concurrency control
 		// The queue processes crawlPage tasks with limited concurrency to prevent overwhelming the target server
 		// bind(this) ensures 'this' context is preserved when crawlPage is called by the queue
@@ -95,7 +101,7 @@ class Crawler extends EventEmitter {
 
 		// Error handling strategy: Implement circuit breaker pattern
 		// Stop crawling after maxErrors to prevent endless error loops on problematic sites
-		this.queue.error((err, task) => {
+		this.queue.error(err => {
 			// Only process if we haven't reached the error limit yet
 			if (this.errorCount < this.maxErrors) {
 				// Increment error count
@@ -196,6 +202,112 @@ class Crawler extends EventEmitter {
 
 	// ----------------------------------------------------------------------------------
 	/**
+	 * Handles pre-crawl checks and validations for a given URL.
+	 * @param {string} url - The URL to check.
+	 * @param {number} depth - The current crawl depth.
+	 * @returns {boolean} True if the crawl should continue, false otherwise.
+	 * @private
+	 */
+	shouldCrawl(url, depth) {
+		if (depth > this.maxDepth) return false;
+		if (this.visitedUrls.has(url)) return false;
+
+		if (this.visitedUrls.size >= this.maxLinks) {
+			if (!this.maxLinksReachedMessageEmitted) {
+				this.emit('log', {
+					module: 'deepSearch',
+					message: `Max links limit of ${this.maxLinks} reached. Stopping deep search.`,
+				});
+				this.maxLinksReachedMessageEmitted = true;
+			}
+			return false;
+		}
+
+		return this.isValidUrl(url);
+	}
+
+	/**
+	 * Handles fetch errors and increments the error counter.
+	 * @param {string} url - The URL that failed to fetch.
+	 * @param {number} depth - The crawl depth at which the error occurred.
+	 * @param {string} error - The error message.
+	 * @returns {boolean} True if the crawl should stop, false otherwise.
+	 * @private
+	 */
+	handleFetchError(url, depth, error) {
+		if (this.errorCount < this.maxErrors) {
+			this.errorCount++;
+			this.emit('log', { module: 'deepSearch', url, depth, error });
+
+			if (this.errorCount >= this.maxErrors) {
+				this.queue.kill();
+				this.emit('log', {
+					module: 'deepSearch',
+					message: `Stopped due to ${this.errorCount} errors (max ${this.maxErrors} allowed).`,
+				});
+				return true; // Stop crawling
+			}
+		}
+		return false; // Continue crawling
+	}
+
+	/**
+	 * Processes a single link found on a page, checking if it's a feed.
+	 * @param {string} url - The absolute URL of the link to process.
+	 * @param {number} depth - The current crawl depth.
+	 * @returns {Promise<boolean>} True if the crawl should stop, false otherwise.
+	 * @private
+	 */
+	async processLink(url, depth) {
+		if (this.visitedUrls.has(url)) return false;
+
+		if (this.visitedUrls.size >= this.maxLinks) {
+			if (!this.maxLinksReachedMessageEmitted) {
+				this.emit('log', {
+					module: 'deepSearch',
+					message: `Max links limit of ${this.maxLinks} reached. Stopping deep search.`,
+				});
+				this.maxLinksReachedMessageEmitted = true;
+			}
+			return true; // Stop
+		}
+
+		const shouldCheckFeed = this.isValidUrl(url) || this.checkForeignFeeds;
+		if (!shouldCheckFeed) return false;
+
+		try {
+			const feedResult = await checkFeed(url, '', this.instance);
+			if (feedResult && !this.feeds.some(feed => feed.url === url)) {
+				this.feeds.push({ url, type: feedResult.type, title: feedResult.title });
+				this.emit('log', {
+					module: 'deepSearch',
+					url,
+					depth: depth + 1,
+					feedCheck: { isFeed: true, type: feedResult.type },
+				});
+
+				if (this.maxFeeds > 0 && this.feeds.length >= this.maxFeeds) {
+					this.queue.kill();
+					this.emit('log', {
+						module: 'deepSearch',
+						message: `Stopped due to reaching maximum feeds limit: ${this.feeds.length} feeds found (max ${this.maxFeeds} allowed).`,
+					});
+					return true; // Stop
+				}
+			} else if (!feedResult) {
+				this.emit('log', { module: 'deepSearch', url, depth: depth + 1, feedCheck: { isFeed: false } });
+			}
+		} catch (error) {
+			return this.handleFetchError(url, depth + 1, `Error checking feed: ${error.message}`);
+		}
+
+		if (depth + 1 <= this.maxDepth && this.isValidUrl(url)) {
+			this.queue.push({ url, depth: depth + 1 });
+		}
+		return false;
+	}
+
+	/**
 	 * Crawls a single page, extracting links and checking for feeds
 	 * @param {object} task - The task object containing the URL and depth
 	 * @param {string} task.url - The URL to crawl
@@ -204,220 +316,41 @@ class Crawler extends EventEmitter {
 	 */
 	async crawlPage(task) {
 		let { url, depth } = task;
-		// wait 0.5 seconds
-		// await new Promise(resolve => setTimeout(resolve, 500));
 
-		if (depth > this.maxDepth) return;
-		if (this.visitedUrls.has(url)) return;
+		if (!this.shouldCrawl(url, depth)) return;
 
-		// Check if we've reached the maximum number of links to process
-		if (this.visitedUrls.size >= this.maxLinks) {
-			// If we've reached the limit, emit a message (only once) and don't process this page
-			if (!this.maxLinksReachedMessageEmitted) {
-				this.emit('log', {
-					module: 'deepSearch',
-					message: `Max links limit of ${this.maxLinks} reached. Stopping deep search.`,
-				});
-				this.maxLinksReachedMessageEmitted = true;
-			}
-			return;
-		}
-
-		if (!this.isValidUrl(url)) return;
 		this.visitedUrls.add(url);
 
-		// Fetch the URL and handle errors properly
-		const response = await fetchWithTimeout(url, this.timeout); // Uses configurable timeout
-
-		// Check if response is null (fetch failed) or not ok
+		const response = await fetchWithTimeout(url, this.timeout);
 		if (!response) {
-			// Only process if we haven't reached the error limit yet
-			if (this.errorCount < this.maxErrors) {
-				// Increment error count
-				this.errorCount++;
-
-				// Emit log with error information for failed fetch
-				this.emit('log', {
-					module: 'deepSearch',
-					url: url,
-					depth: depth,
-					error: 'Failed to fetch URL - timeout or network error',
-				});
-
-				// Check if we've reached the maximum error count
-				if (this.errorCount >= this.maxErrors) {
-					// Kill the queue to stop processing immediately
-					this.queue.kill();
-					// Emit log message about stopping due to errors
-					this.emit('log', {
-						module: 'deepSearch',
-						message: `Stopped due to ${this.errorCount} errors (max ${this.maxErrors} allowed).`,
-					});
-				}
-			}
+			this.handleFetchError(url, depth, 'Failed to fetch URL - timeout or network error');
 			return;
 		}
-
 		if (!response.ok) {
-			// Only process if we haven't reached the error limit yet
-			if (this.errorCount < this.maxErrors) {
-				// Increment error count
-				this.errorCount++;
-
-				// Emit log with error information for failed fetch
-				this.emit('log', {
-					module: 'deepSearch',
-					url: url,
-					depth: depth,
-					error: `HTTP ${response.status} ${response.statusText}`,
-				});
-
-				// Check if we've reached the maximum error count
-				if (this.errorCount >= this.maxErrors) {
-					// Kill the queue to stop processing immediately
-					this.queue.kill();
-					// Emit log message about stopping due to errors
-					this.emit('log', {
-						module: 'deepSearch',
-						message: `Stopped due to ${this.errorCount} errors (max ${this.maxErrors} allowed).`,
-					});
-				}
-			}
+			this.handleFetchError(url, depth, `HTTP ${response.status} ${response.statusText}`);
 			return;
 		}
 
 		const html = await response.text();
 		const { document } = parseHTML(html);
-		let links = document.querySelectorAll('a');
 
-		for (let link of links) {
-			let absoluteUrl = new URL(link.href, this.startUrl).href;
-			// Skip if we've already visited this URL
-			if (this.visitedUrls.has(absoluteUrl)) continue;
-
-			// Check if we've reached the maximum number of links to process
-			if (this.visitedUrls.size >= this.maxLinks) {
-				// If we've reached the limit, emit a message (only once) and stop adding new links to the queue
-				if (!this.maxLinksReachedMessageEmitted) {
-					this.emit('log', {
-						module: 'deepSearch',
-						message: `Max links limit of ${this.maxLinks} reached. Stopping deep search.`,
-					});
-					this.maxLinksReachedMessageEmitted = true;
-				}
-				break;
-			}
-
-			try {
-				// Check if the link is on the same domain OR if we should check foreign feeds
-				const shouldCheckFeed = this.isValidUrl(absoluteUrl) || this.checkForeignFeeds;
-
-				if (shouldCheckFeed) {
-					// Check if the link itself is a feed (fetches the URL content to check)
-					const feedResult = await checkFeed(absoluteUrl);
-					if (feedResult) {
-						// Check if we already found this feed to avoid duplicates
-						const alreadyFound = this.feeds.some(feed => feed.url === absoluteUrl);
-						if (!alreadyFound) {
-							this.feeds.push({
-								url: absoluteUrl,
-								type: feedResult.type,
-								title: feedResult.title,
-							});
-							// Emit log for found feed
-							this.emit('log', {
-								module: 'deepSearch',
-								url: absoluteUrl,
-								depth: depth + 1,
-								feedCheck: { isFeed: true, type: feedResult.type },
-							});
-
-							// Check if we've reached the maximum number of feeds
-							if (this.maxFeeds > 0 && this.feeds.length >= this.maxFeeds) {
-								// Kill the queue to stop processing immediately
-								this.queue.kill();
-								// Emit log message about stopping due to reaching max feeds
-								this.emit('log', {
-									module: 'deepSearch',
-									message: `Stopped due to reaching maximum feeds limit: ${this.feeds.length} feeds found (max ${this.maxFeeds} allowed).`,
-								});
-								// Break out of the loop to stop processing the current page
-								break;
-							}
-						}
-					} else {
-						// Emit log for visited URL that is not a feed
-						this.emit('log', {
-							module: 'deepSearch',
-							url: absoluteUrl,
-							depth: depth + 1,
-							feedCheck: { isFeed: false },
-						});
-					}
-				} else {
-					// Skip checking this URL for feeds since it's on a foreign domain and we're not configured to check them
-					continue;
-				}
-			} catch (error) {
-				// Only process if we haven't reached the error limit yet
-				if (this.errorCount < this.maxErrors) {
-					// Increment error count
-					this.errorCount++;
-
-					// Emit error event with the specified pattern when an error occurs
-					this.emit('error', {
-						module: 'deepSearch',
-						error: `Error checking feed ${absoluteUrl}: ${error.message}`,
-						explanation:
-							'An error occurred while trying to fetch and validate a potential feed URL discovered during deep crawling. This could be due to network timeouts, server errors, or invalid feed content.',
-						suggestion:
-							'Check if the URL is accessible and returns valid content. Network issues or server problems may cause this error. The crawler will continue with other URLs.',
-					});
-					// Also emit log with error information
-					this.emit('log', {
-						module: 'deepSearch',
-						url: absoluteUrl,
-						depth: depth + 1,
-						error: `Error checking feed: ${error.message}`,
-					});
-
-					// Check if we've reached the maximum error count
-					if (this.errorCount >= this.maxErrors) {
-						// Kill the queue to stop processing immediately
-						this.queue.kill();
-						// Emit log message about stopping due to errors
-						this.emit('log', {
-							module: 'deepSearch',
-							message: `Stopped due to ${this.errorCount} errors (max ${this.maxErrors} allowed).`,
-						});
-						// Break out of the loop to stop processing the current page
-						break;
-					}
-				} else {
-					// If we've already reached the error limit, break out of the loop to stop processing the current page
-					break;
-				}
-			}
-
-			// Only add the link to the queue for further crawling if:
-			// 1. It's within depth limits
-			// 2. It's on the same domain as the start URL (to prevent following external links)
-			if (depth + 1 <= this.maxDepth && this.isValidUrl(absoluteUrl)) {
-				this.queue.push({ url: absoluteUrl, depth: depth + 1 });
-			}
+		for (const link of document.querySelectorAll('a')) {
+			const absoluteUrl = new URL(link.href, this.startUrl).href;
+			const shouldStop = await this.processLink(absoluteUrl, depth);
+			if (shouldStop) break;
 		}
 	}
 } // class Crawler
 export default async function deepSearch(url, options = {}, instance = null) {
-	const crawler = new Crawler(
-		url,
-		options.depth || 3,
-		5,
-		options.maxLinks || 1000,
-		!!options.checkForeignFeeds, // Whether to check foreign domains for feeds
-		options.maxErrors || 5, // Maximum number of errors before stopping
-		options.maxFeeds || 0 // Maximum number of feeds before stopping (0 = no limit)
-	);
+	const crawler = new Crawler(url, {
+		maxDepth: options.depth || 3,
+		concurrency: 5,
+		maxLinks: options.maxLinks || 1000,
+		checkForeignFeeds: !!options.checkForeignFeeds, // Whether to check foreign domains for feeds
+		maxErrors: options.maxErrors || 5, // Maximum number of errors before stopping
+		maxFeeds: options.maxFeeds || 0, // Maximum number of feeds before stopping (0 = no limit)
+		instance // Pass the FeedScout instance to the crawler
+	});
 	crawler.timeout = (options.timeout || 5) * 1000; // Convert seconds to milliseconds
 
 	// If we have an instance, forward crawler events to the instance

@@ -169,13 +169,8 @@ async function processAnchor(anchor, context) {
 		return;
 	}
 
-	instance.emit('log', {
-		module: 'anchors',
-		anchor: urlToCheck,
-	});
-
 	try {
-		const feedResult = await checkFeed(urlToCheck);
+		const feedResult = await checkFeed(urlToCheck, '', instance);
 		if (feedResult) {
 			feedUrls.push({
 				href: urlToCheck,
@@ -185,14 +180,16 @@ async function processAnchor(anchor, context) {
 			});
 		}
 	} catch (error) {
-		instance.emit('error', {
-			module: 'anchors',
-			error: `Error checking feed at ${urlToCheck}: ${error.message}`,
-			explanation:
-				'An error occurred while trying to fetch and validate a potential feed URL found in an anchor tag. This could be due to network timeouts, server errors, or invalid feed content.',
-			suggestion:
-				'Check if the URL is accessible and returns valid feed content. Network connectivity issues or server problems may cause this error.',
-		});
+		if (instance.options?.showErrors) {
+			instance.emit('error', {
+				module: 'anchors',
+				error: `Error checking feed at ${urlToCheck}: ${error.message}`,
+				explanation:
+					'An error occurred while trying to fetch and validate a potential feed URL found in an anchor tag. This could be due to network timeouts, server errors, or invalid feed content.',
+				suggestion:
+					'Check if the URL is accessible and returns valid feed content. Network connectivity issues or server problems may cause this error.',
+			});
+		}
 	}
 }
 
@@ -227,13 +224,7 @@ async function checkAnchors(instance) {
 		feedUrls: [],
 	};
 
-	// Emit the count of anchors that will actually be processed
-	instance.emit('log', {
-		module: 'anchors',
-		totalCount: totalCount,
-		filteredCount: filteredAnchors.length, // Number of anchors that passed the domain filter
-	});
-
+	let count = 1;
 	for (const anchor of filteredAnchors) {
 		if (maxFeeds > 0 && context.feedUrls.length >= maxFeeds) {
 			instance.emit('log', {
@@ -242,6 +233,7 @@ async function checkAnchors(instance) {
 			});
 			break;
 		}
+		instance.emit('log', { module: 'anchors', totalCount: count++, totalEndpoints: filteredAnchors.length });
 		await processAnchor(anchor, context);
 	}
 

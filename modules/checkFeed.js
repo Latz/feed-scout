@@ -111,7 +111,7 @@ function cleanTitle(title) {
  * const result = await checkFeed('https://example.com/not-a-feed');
  * console.log(result); // null
  */
-export default async function checkFeed(url, content = '') {
+export default async function checkFeed(url, content = '', instance) {
 	// Check if URL pattern indicates this is likely an oEmbed endpoint
 	if (url.includes('/wp-json/oembed/') || url.includes('/oembed')) {
 		// WordPress oEmbed endpoints are not feeds
@@ -120,7 +120,7 @@ export default async function checkFeed(url, content = '') {
 
 	// only fetch content if it's not provided by the caller
 	if (!content) {
-		const response = await fetch(url);
+		const response = await fetchWithTimeout(url, instance.options.timeout * 1000);
 		if (!response.ok) {
 			throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
 		}

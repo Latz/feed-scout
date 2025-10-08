@@ -456,16 +456,11 @@ function shouldContinueSearch(currentIndex, totalUrls, rssFound, atomFound, shou
 }
 
 export default async function blindSearch(instance) {
-	instance.emit('start', { module: 'blindsearch', niceName: 'Blind search' });
-
 	// Generate all possible endpoint URLs
 	const endpointUrls = generateEndpointUrls(instance.site, instance.options?.keepQueryParams || false);
 
 	// Emit the total count so the CLI can display it
-	instance.emit('log', {
-		module: 'blindsearch',
-		totalCount: endpointUrls.length,
-	});
+	instance.emit('start', { module: 'blindsearch', niceName: 'Blind search', endpointUrls: endpointUrls.length });
 
 	const shouldCheckAll = instance.options?.all || false;
 	const maxFeeds = instance.options?.maxFeeds || 0; // Maximum number of feeds to find (0 = no limit)
@@ -500,7 +495,7 @@ async function processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance) {
 		}
 
 		const url = endpointUrls[i];
-		const result = await processSingleFeedUrl(url, instance, foundUrls, feeds, rssFound, atomFound, maxFeeds);
+		const result = await processSingleFeedUrl(url, instance, foundUrls, feeds, rssFound, atomFound);
 
 		// Update tracking flags if a feed was found
 		if (result.found) {
@@ -515,7 +510,8 @@ async function processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance) {
 		}
 
 		// Emit that a URL was checked, which will increment the counter and update the progress
-		instance.emit('log', { module: 'blindsearch', url: true });
+		let feedsFound = feeds.length;
+		instance.emit('log', { module: 'blindsearch', totalEndpoints: endpointUrls.length, totalCount: i, feedsFound });
 
 		i++;
 	}
@@ -534,9 +530,9 @@ async function processFeeds(endpointUrls, shouldCheckAll, maxFeeds, instance) {
  * @param {number} maxFeeds - Maximum number of feeds to find (0 = no limit)
  * @returns {Promise<object>} A promise that resolves to an object containing found status and updated flags
  */
-async function processSingleFeedUrl(url, instance, foundUrls, feeds, rssFound, atomFound, maxFeeds) {
+async function processSingleFeedUrl(url, instance, foundUrls, feeds, rssFound, atomFound) {
 	try {
-		const feedResult = await checkFeed(url);
+		const feedResult = await checkFeed(url, '', instance);
 
 		// Only add feed if it hasn't been found before
 		if (feedResult && !foundUrls.has(url)) {
@@ -546,13 +542,6 @@ async function processSingleFeedUrl(url, instance, foundUrls, feeds, rssFound, a
 			const updatedFlags = addFeed(feedResult, url, feeds, rssFound, atomFound);
 			rssFound = updatedFlags.rssFound;
 			atomFound = updatedFlags.atomFound;
-
-			// Emit updated feed count immediately when a feed is found
-			// This will trigger a display update with the new count
-			instance.emit('log', {
-				module: 'blindsearch',
-				foundFeedsCount: feeds.length,
-			});
 
 			return { found: true, rssFound, atomFound };
 		}

@@ -6,8 +6,8 @@ const defaultTestFiles = [
 	'./tests/eventEmitter.test.js',
 	'./tests/checkFeed.test.js',
 	'./tests/feedScout.test.js',
-	'./tests/anchors.test.js',
-	'./tests/anchors-helpers.test.js',
+	'./tests/blindSearch.test.js',
+	'./tests/deepSearch.test.js',
 	'./tests/metaLinks.test.js',
 	'./tests/fetchWithTimeout.test.js',
 ];

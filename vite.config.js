@@ -26,9 +26,6 @@ export default defineConfig({
       external: [
         'linkedom',
         'async',
-        'chalk',
-        'isurl-module',
-        'normalize-url',
         'parse5',
         'tldts',
         'truncate-url'
@@ -37,9 +34,6 @@ export default defineConfig({
         globals: {
           linkedom: 'linkedom',
           async: 'async',
-          chalk: 'chalk',
-          'isurl-module': 'isurlModule',
-          'normalize-url': 'normalizeUrl',
           parse5: 'parse5',
           tldts: 'tldts',
           'truncate-url': 'truncateUrl'

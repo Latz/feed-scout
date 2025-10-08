@@ -203,4 +203,53 @@ export default class FeedScout extends EventEmitter {
 		const crawler = deepSearch(this.site, this.options, this);
 		return crawler;
 	}
+
+	async startSearch() {
+		const { deepsearchOnly, metasearch, blindsearch, anchorsonly, deepsearch, all, maxFeeds } = this.options;
+
+		if (deepsearchOnly) {
+			return this.deepSearch();
+		}
+
+		if (metasearch) {
+			return this.metaLinks();
+		}
+
+		if (blindsearch) {
+			return this.blindSearch();
+		}
+
+		if (anchorsonly) {
+			return this.checkAllAnchors();
+		}
+
+		let totalFeeds = [];
+		const searchStrategies = [this.metaLinks, this.checkAllAnchors, this.blindSearch];
+
+		for (const strategy of searchStrategies) {
+			const feeds = await strategy.call(this);
+			if (feeds && feeds.length > 0) {
+				totalFeeds = totalFeeds.concat(feeds);
+				if (!all && maxFeeds > 0 && totalFeeds.length >= maxFeeds) {
+					totalFeeds = totalFeeds.slice(0, maxFeeds);
+					break;
+				}
+			}
+		}
+
+		if (deepsearch) {
+			if (!maxFeeds || totalFeeds.length < maxFeeds) {
+				const deepFeeds = await this.deepSearch();
+				if (deepFeeds && deepFeeds.length > 0) {
+					totalFeeds = totalFeeds.concat(deepFeeds);
+					if (maxFeeds > 0 && totalFeeds.length > maxFeeds) {
+						totalFeeds = totalFeeds.slice(0, maxFeeds);
+					}
+				}
+			}
+		}
+
+		this.emit('end', { module: 'all', feeds: totalFeeds });
+		return totalFeeds;
+	}
 } // class

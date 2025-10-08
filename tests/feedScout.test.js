@@ -1,99 +1,107 @@
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import FeedScout from '../feed-scout.js';
-
-// Mock the external dependencies since we can't easily control network requests in tests
-class MockEventEmitter {
-  constructor() {
-    this.events = {};
-    this.eventHistory = [];
-  }
-  
-  on(event, callback) {
-    if (!this.events[event]) {
-      this.events[event] = [];
-    }
-    this.events[event].push(callback);
-  }
-  
-  emit(event, data) {
-    this.eventHistory.push({ event, data });
-    if (this.events[event]) {
-      this.events[event].forEach(callback => callback(data));
-    }
-  }
-}
+import metaLinks from '../modules/metaLinks.js';
+import checkAllAnchors from '../modules/anchors.js';
+import blindSearch from '../modules/blindsearch.js';
+import deepSearch from '../modules/deepSearch.js';
 
 // Since we can't easily mock the imported modules, let's test the constructor and basic functionality
 describe('FeedScout Main Class', () => {
-  describe('Constructor', () => {
-    it('should create instance with proper site normalization', () => {
-      const fs = new FeedScout('example.com');
-      assert.ok(fs.site.includes('https://example.com'));
-    });
+	let fs;
 
-    it('should handle URLs with protocol correctly', () => {
-      const fs = new FeedScout('https://example.com');
-      // Root domain URLs should not have trailing slash to prevent duplicate path traversal
-      assert.strictEqual(fs.site, 'https://example.com');
-    });
+	beforeEach(() => {
+		fs = new FeedScout('https://example.com');
+		// Mock the initialize method to prevent actual network calls
+		mock.method(fs, 'initialize', async () => {
+			fs.document = { querySelectorAll: () => [] }; // Provide a mock document
+			fs.emit('initialized'); // Emit the event as the real method does
+			return Promise.resolve();
+		});
+	});
 
-    it('should store options correctly', () => {
-      const options = { timeout: 10, maxFeeds: 5 };
-      const fs = new FeedScout('https://example.com', options);
-      
-      // We can't directly access options property, but we can verify it's stored
-      assert.ok(fs);
-    });
+	afterEach(() => {
+		mock.reset();
+	});
 
-    it('should initialize with null initPromise', () => {
-      const fs = new FeedScout('https://example.com');
-      assert.strictEqual(fs.initPromise, null);
-    });
-  });
+	describe('Constructor', () => {
+		it('should create instance with proper site normalization', () => {
+			const scout = new FeedScout('example.com');
+			assert.strictEqual(scout.site, 'https://example.com');
+		});
 
-  describe('Method Availability', () => {
-    it('should have all required methods', () => {
-      const fs = new FeedScout('https://example.com');
-      
-      assert.strictEqual(typeof fs.initialize, 'function');
-      assert.strictEqual(typeof fs.metaLinks, 'function');
-      assert.strictEqual(typeof fs.checkAllAnchors, 'function');
-      assert.strictEqual(typeof fs.blindSearch, 'function');
-      assert.strictEqual(typeof fs.deepSearch, 'function');
-    });
-  });
+		it('should handle URLs with protocol correctly', () => {
+			const scout = new FeedScout('https://example.com');
+			assert.strictEqual(scout.site, 'https://example.com');
+		});
 
-  describe('Event System Integration', () => {
-    it('should extend EventEmitter functionality', () => {
-      const fs = new FeedScout('https://example.com');
-      assert.ok(fs.on && fs.emit && typeof fs.on === 'function'); 
-    });
+		it('should store options correctly', () => {
+			const options = { timeout: 10, maxFeeds: 5 };
+			const scout = new FeedScout('https://example.com', options);
+			assert.deepStrictEqual(scout.options, options);
+		});
 
-    it('should be able to register event listeners', () => {
-      const fs = new FeedScout('https://example.com');
-      let eventEmitted = false;
-      
-      fs.on('test', () => {
-        eventEmitted = true;
-      });
-      
-      fs.emit('test');
-      // Note: Since we can't easily control the real EventEmitter, 
-      // we'll just check that the method exists and is accessible
-      assert.ok(typeof fs.on === 'function');
-    });
-  });
+		it('should initialize with null initPromise', () => {
+			const scout = new FeedScout('https://example.com');
+			assert.strictEqual(scout.initPromise, null);
+		});
+	});
 
-  describe('URL handling', () => {
-    it('should normalize different URL formats', () => {
-      const fs1 = new FeedScout('example.com');
-      const fs2 = new FeedScout('http://example.com');
-      const fs3 = new FeedScout('https://example.com/path');
-      
-      assert.ok(fs1.site.startsWith('https://'));
-      assert.ok(fs2.site.startsWith('http://') || fs2.site.startsWith('https://')); // May convert to https
-      assert.ok(fs3.site.includes('https://example.com'));
-    });
-  });
+	describe('Method Availability', () => {
+		it('should have all required search methods', () => {
+			assert.strictEqual(typeof fs.initialize, 'function');
+			assert.strictEqual(typeof fs.metaLinks, 'function');
+			assert.strictEqual(typeof fs.checkAllAnchors, 'function');
+			assert.strictEqual(typeof fs.blindSearch, 'function');
+			assert.strictEqual(typeof fs.deepSearch, 'function');
+		});
+	});
+
+	describe('Search Method Orchestration', () => {
+		it('should return results when metaLinks() is invoked', async () => {
+			const result = await fs.metaLinks();
+			// The method should return an array (even if empty)
+			assert(Array.isArray(result));
+		});
+
+		it('should return results when blindSearch() is invoked', async () => {
+			const result = await fs.blindSearch();
+			// The method should return an array (even if empty)
+			assert(Array.isArray(result));
+		});
+
+		it('should return results when deepSearch() is invoked', async () => {
+			const result = await fs.deepSearch();
+			// The method should return an array (even if empty)
+			assert(Array.isArray(result));
+		});
+	});
+
+	describe('Event System Integration', () => {
+		it('should extend EventEmitter functionality', () => {
+			assert.ok(fs.on && fs.emit && typeof fs.on === 'function');
+		});
+
+		it('should emit "initialized" after initialize() is complete', async () => {
+			let eventEmitted = false;
+			fs.on('initialized', () => {
+				eventEmitted = true;
+			});
+
+			await fs.initialize();
+			assert.strictEqual(eventEmitted, true);
+		});
+	});
+
+	describe('URL handling', () => {
+		it('should normalize different URL formats', () => {
+			const fs1 = new FeedScout('example.com');
+			const fs2 = new FeedScout('http://example.com');
+			const fs3 = new FeedScout('https://example.com/path');
+
+			assert.strictEqual(fs1.site, 'https://example.com');
+			assert.strictEqual(fs2.site, 'http://example.com');
+			assert.strictEqual(fs3.site, 'https://example.com/path');
+		});
+	});
 });
